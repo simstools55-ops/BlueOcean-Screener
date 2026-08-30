@@ -1,0 +1,27 @@
+SIMS Blue Ocean Screener v0.11.0 Release Audit
+Date: 2026-08-29
+
+Version policy: MINOR
+Reason: formal Personal Knowledge separation from the distributable product.
+
+Checks
+- Apps Script JavaScript syntax: PASS
+- Source/distribution Code.gs identical: PASS
+- Focused separation regression: PASS
+- Known owner/site markers: PASS
+- Low-number operational Article IDs in runtime: PASS
+- Current distribution directory only v0.11.0: PASS
+
+Compatibility
+- Spreadsheet/Home/Candidates structures: unchanged
+- Stored candidate and Creator workflow data: unchanged
+- Creator handoff and SBM registration contract: unchanged
+- Manual Claude Package/response-paste workflow: unchanged
+- Deprecated Claude API integration: remains removed
+
+PASS: v0.11.0 version
+PASS: neutral blog example
+PASS: synthetic Article ID example
+PASS: no low-number operational Article IDs in runtime
+PASS: no deprecated API wording restored
+

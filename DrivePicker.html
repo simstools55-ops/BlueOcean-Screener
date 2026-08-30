@@ -1,0 +1,192 @@
+<!-- SIMS BOS v0.10.2 -->
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    :root{--blue:#1a73e8;--blue2:#174ea6;--line:#dadce0;--text:#202124;--muted:#5f6368;--soft:#f8fafd;--green:#e6f4ea;--yellow:#fef7e0}
+    *{box-sizing:border-box}
+    body{font-family:Arial,sans-serif;margin:0;color:var(--text);background:#fff}
+    .title{padding:14px 16px 8px;font-size:18px;font-weight:700;color:var(--blue2)}
+    .guide{margin:0 16px 10px;padding:10px 12px;border:1px solid #d2e3fc;border-radius:8px;background:#f8fbff;font-size:12px;line-height:1.55;color:#3c4043}
+    .bar{padding:9px 16px;border-top:1px solid #eef0f2;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;background:var(--soft)}
+    #path{flex:1;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .list{height:300px;overflow:auto}
+    .row{padding:10px 16px;border-bottom:1px solid #eee;cursor:pointer;display:flex;gap:10px;align-items:center}
+    .row:hover{background:#f6f8fa}.row.selected{background:#e8f0fe;outline:1px solid #8ab4f8}
+    .check{width:22px;text-align:center;font-weight:bold;color:var(--blue)}.name{flex:1}.type{width:76px;color:#777;font-size:12px}
+    .footer{padding:11px 16px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;min-height:58px}
+    #msg{flex:1;font-size:12px;color:var(--muted);white-space:normal}
+    button{padding:8px 14px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-weight:600}
+    button.primary{background:var(--blue);border-color:var(--blue);color:#fff;display:inline-flex;align-items:center;gap:7px}.btnspin{display:none;width:13px;height:13px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite}.working .btnspin{display:inline-block}button:disabled{opacity:.55;cursor:not-allowed}
+    #busy{display:none;position:fixed;inset:0;background:rgba(255,255,255,.82);z-index:20;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+    .spinner{width:34px;height:34px;border:4px solid #dfe3e7;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}#busyText{font-size:13px;color:#3c4043}
+    #result{display:none;padding:16px 20px;overflow:visible}
+    .resultBox{background:var(--green);border:1px solid #ceead6;border-radius:8px;padding:14px;line-height:1.65;font-size:13px;white-space:pre-line;overflow-wrap:anywhere}
+    .resultActions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}.answerArea{display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.answerArea textarea{width:100%;height:220px;box-sizing:border-box;border:1px solid var(--line);border-radius:7px;padding:10px;font-family:monospace;font-size:12px}.answerStatus{margin-top:8px;padding:9px;background:var(--soft);border-radius:6px;font-size:12px;white-space:pre-wrap}
+  </style>
+</head>
+<body>
+  <div id="pickerView">
+    <div id="dialogTitle" class="title"></div>
+    <div id="guide" class="guide"></div>
+    <div class="bar">
+      <button onclick="goRoot()">ルート</button>
+      <button id="upBtn" onclick="goUp()" disabled>一つ上へ</button>
+      <span id="path">マイドライブ</span>
+    </div>
+    <div id="list" class="list"></div>
+    <div class="footer">
+      <span id="msg">ファイルを選択してください。</span>
+      <button id="selectFolderBtn" class="primary" onclick="selectCurrentFolder(this)" style="display:none"><span class="btnspin"></span><span class="btntxt">このフォルダーを保存先にする</span></button>
+      <button id="confirmBtn" class="primary" onclick="confirmSelection(this)" disabled><span class="btnspin"></span><span class="btntxt">このファイルを選ぶ</span></button>
+      <button onclick="google.script.host.close()">閉じる</button>
+    </div>
+  </div>
+
+  <div id="result">
+    <div id="resultTitle" class="title" style="padding-left:0"></div>
+    <div id="resultBox" class="resultBox"></div><div id="cannibalAnswerArea" class="answerArea"><b>Claude回答全文</b><textarea id="cannibalAnswer" placeholder="Claude回答全文をここへ貼り付け"></textarea><div id="cannibalAnswerStatus" class="answerStatus">回答待ち</div><div class="resultActions"><button id="cannibalRegisterBtn" class="primary" onclick="registerCannibalAnswer(this)"><span class="btnspin"></span><span class="btntxt">回答を登録</span></button></div></div>
+    <div class="resultActions">
+      <button id="nextBtn" class="primary" style="display:none"></button>
+      <button onclick="google.script.host.close()">閉じる</button>
+    </div>
+  </div>
+
+  <div id="siteContext" style="display:none;margin:0 16px 10px;padding:8px 11px;background:#f8fbff;border:1px solid #d2e3fc;border-radius:7px;font-size:12px">
+    対象ブログ: <b id="siteName"></b>
+  </div>
+
+  <div id="busy"><div class="spinner"></div><div id="busyText">処理中です…</div></div>
+
+<script>
+const pickerMode='<?!= pickerMode ?>';
+const startFolderId='<?!= startFolderId ?>';
+const currentSiteName='<?!= currentSiteName || "" ?>';
+const currentSiteUrl='<?!= currentSiteUrl || "" ?>';
+const currentSiteKey='<?!= currentSiteKey || "" ?>';
+const filePrefix='<?!= filePrefix || "" ?>';
+const fileExtensions='<?!= fileExtensions || "" ?>';
+let folderId='', parentId='', folderName='マイドライブ', selectedFile=null;
+
+const MODE={
+  file:{title:'2. キーワードを読み込む',guide:'CSV/TSVのキーワードファイルを選びます。前回使用したフォルダー、または設定済みフォルダーから開始します。読み込み後も結果は保持され、閉じても次回その続きから進めます。'},
+  folder:{title:'保存先フォルダーを設定する',guide:'BOSが生成するSERP精査・カニバリ精査Packageの保存先を選びます。初回設定時は、このフォルダーをキーワード読込の開始位置にも使用します。'},
+  serp_result:{title:'保守用: SERP結果JSONファイルを登録する',guide:'旧運用との互換性維持用です。通常運用では使用しません。標準フローはClaude回答全文を「4. Claude SERP精査結果を貼り付け・登録する」へ貼り付けます。'},
+  cannibal_evidence:{title:'5. Claude カニバリ精査',guide:'ここで選ぶのは、対象ブログの既存記事情報を収録したEvidenceファイルです。Site Collector / Site Diagnosis等で作成した、既存記事・URL・本文や検索データを含むEvidenceを選んでください。BOSはSERP GREEN候補とこのEvidenceをまとめ、Claudeへ渡すカニバリ精査Packageを作成します。'},
+  cannibal_result:{title:'保守用: カニバリ結果JSONファイルを登録する',guide:'旧運用との互換性維持用です。通常運用では使用しません。標準フローはClaude回答全文を「6. Claude カニバリ精査結果を貼り付け・登録する」へ貼り付けます。'}
+};
+
+function isFileMode(){return pickerMode!=='folder'}
+function isKeywordMode(){return pickerMode==='file'}
+function initSiteGuard(){
+  const g=document.getElementById('siteContext');
+  if(!g)return;
+  g.style.display=isKeywordMode()?'block':'none';
+  if(isKeywordMode())document.getElementById('siteName').textContent=currentSiteName||'未設定';
+}
+let actionBtn=null;
+function buttonWork(btn,on,label){if(!btn)return;const t=btn.querySelector('.btntxt');if(on){actionBtn=btn;btn.dataset.o=t?t.textContent:'';if(t)t.textContent=label||'処理中…';btn.classList.add('working');btn.disabled=true}else{if(t)t.textContent=btn.dataset.o||'実行';btn.classList.remove('working');btn.disabled=false;if(actionBtn===btn)actionBtn=null}}
+function setBusy(on,text){document.getElementById('busy').style.display=on?'flex':'none';if(text)document.getElementById('busyText').textContent=text}
+function load(id){
+  folderId=(id===undefined||id===null)?'':id; selectedFile=null; updateConfirm(); setBusy(true,'Google Driveを読み込んでいます…');
+  google.script.run.withSuccessHandler(p=>{setBusy(false);render(p)}).withFailureHandler(showError).sbosListDriveFiles(folderId,pickerMode);
+}
+function render(payload){
+  folderId=payload.folderId||''; parentId=payload.parentId||''; folderName=payload.folderName||'マイドライブ';
+  document.getElementById('path').textContent=folderName; document.getElementById('upBtn').disabled=!folderId;
+  document.getElementById('selectFolderBtn').style.display=pickerMode==='folder'?'inline-block':'none';
+  document.getElementById('confirmBtn').style.display=isFileMode()?'inline-block':'none';
+  const exts=fileExtensions.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+  const items=(payload.items||[]).filter(x=>{
+    if(x.type==='folder') return true;
+    if(!isFileMode()) return false;
+    const n=String(x.name||'');
+    if(filePrefix && !n.startsWith(filePrefix)) return false;
+    if(exts.length && !exts.some(e=>n.toLowerCase().endsWith(e))) return false;
+    return true;
+  }), el=document.getElementById('list'); el.innerHTML='';
+  items.forEach(x=>{
+    const d=document.createElement('div'); d.className='row';
+    d.innerHTML='<span class="check"></span><span class="type">'+(x.type==='folder'?'フォルダー':'ファイル')+'</span><span class="name"></span>';
+    d.querySelector('.name').textContent=x.name;
+    d.onclick=x.type==='folder'?()=>load(x.id):()=>selectFile(x,d); el.appendChild(d);
+  });
+  document.getElementById('msg').textContent=items.length+'件。'+(pickerMode==='folder'?'この場所を保存先にする場合は右のボタンを押してください。':'ファイルを選択してください。');
+}
+function selectFile(file,rowEl){
+  document.querySelectorAll('.row').forEach(r=>{r.classList.remove('selected');const c=r.querySelector('.check');if(c)c.textContent=''});
+  selectedFile={id:file.id,name:file.name}; rowEl.classList.add('selected'); rowEl.querySelector('.check').textContent='✓';
+  document.getElementById('msg').textContent='選択中: '+file.name;
+  updateConfirm();
+}
+function updateConfirm(){document.getElementById('confirmBtn').disabled=!selectedFile;}
+function showResult(title,text,nextLabel,nextAction){
+  setBusy(false); if(actionBtn)buttonWork(actionBtn,false); document.getElementById('pickerView').style.display='none'; document.getElementById('result').style.display='block';
+  document.getElementById('resultTitle').textContent=title; document.getElementById('resultBox').textContent=text;
+  const b=document.getElementById('nextBtn'); b.style.display=nextAction?'inline-block':'none'; b.textContent=nextLabel||'次へ';
+  b.onclick=()=>runNext(nextAction);
+}
+function showCannibalCombinedResult(m){
+  showResult('カニバリ精査Packageを作成しました','候補: '+m.count+'件\nファイル名: '+m.fileName+'\n保存先: '+m.folderName+'\n\nこのZIPをClaude.aiへアップロードし、回答全文を下欄へ貼り付けてください。','','');
+  document.getElementById('cannibalAnswerArea').style.display='block';
+}
+function registerCannibalAnswer(btn){
+  const t=document.getElementById('cannibalAnswer').value;
+  if(!t.trim()){document.getElementById('cannibalAnswerStatus').textContent='Claude回答全文を貼り付けてください。';return;}
+  buttonWork(btn,true,'処理中…');document.getElementById('cannibalAnswerStatus').textContent='回答を検証・登録しています…';
+  google.script.run.withSuccessHandler(r=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='登録完了\n反映: '+r.applied+'件\nGREEN: '+r.green+' / YELLOW: '+r.yellow+' / BLOCK: '+r.block+'\n\n次はCandidatesでGREEN候補を1件選び「6. GREEN候補をCreator処理」へ進んでください。';}).withFailureHandler(e=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='エラー: '+(e&&e.message?e.message:e);}).sbosImportCannibalReviewText(t);
+}
+function runNext(action){
+  if(!action)return;
+  if(action==='close'){google.script.host.close();return;}
+  setBusy(true,'次の処理へ進んでいます…');
+  if(action==='screening'){
+    google.script.run.withSuccessHandler(meta=>showResult('一次選抜・4語深掘り完了','SERP精査対象: '+meta.serpCount+'件\n新規4語深掘り候補: '+meta.generated4+'件\n\nGENERATED_4WORDは需要未確認です。SERP精査で確認するまでGREENにはしません。','4. Claude SERP精査へ','serp_workflow')).withFailureHandler(showError).sbosStartScreeningFromDialog(); return;
+  }
+  if(action==='serp_package'){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(showError).sbosCreateSerpReviewPackage();return}
+  if(action==='serp_workflow'){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(showError).sbosShowSerpWorkflowDialog();return}
+  if(action==='serp_paste'){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(showError).sbosShowSerpResultPasteDialog();return}
+  if(action==='cannibal_picker'){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(showError).sbosShowCannibalEvidencePicker();return}
+  if(action==='cannibal_paste'){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(showError).sbosShowCannibalResultPasteDialog();return}
+  if(action==='candidates'){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(showError).sbosOpenCandidates();return}
+  google.script.host.close();
+}
+function confirmSelection(btn){
+  if(!selectedFile)return; const id=selectedFile.id,name=selectedFile.name; buttonWork(btn,true,'処理中…');
+  if(pickerMode==='serp_result'){
+    setBusy(true,'SERP精査結果を登録しています…');
+    google.script.run.withSuccessHandler(m=>showResult('SERP精査結果を登録しました','反映: '+m.applied+'件\nGREEN: '+m.green+'\nYELLOW: '+m.yellow+'\nBLOCK: '+m.block+'\nIntent統合: '+m.clustered+'件','5. カニバリ精査Packageへ','cannibal_picker')).withFailureHandler(showError).sbosImportSerpReviewResult(id);return;
+  }
+  if(pickerMode==='cannibal_result'){
+    setBusy(true,'カニバリ精査結果を登録しています…');
+    google.script.run.withSuccessHandler(m=>showResult('カニバリ精査結果を登録しました','反映: '+m.applied+'件\nGREEN: '+m.green+'\nYELLOW: '+m.yellow+'\nBLOCK: '+m.block+'\n\nGREEN候補を確認し、Creator依頼文を作成してください。','7. GREEN候補を確認','candidates')).withFailureHandler(showError).sbosImportCannibalReviewResult(id);return;
+  }
+  if(pickerMode==='cannibal_evidence'){
+    setBusy(true,'Evidenceを読み込み、カニバリ精査Packageを作成しています…');
+    google.script.run.withSuccessHandler(m=>{buttonWork(btn,false);showCannibalCombinedResult(m)}).withFailureHandler(showError).sbosCreateCannibalReviewPackageFromEvidence(id);return;
+  }
+  setBusy(true,'キーワードファイルを読み込んでいます…');
+  google.script.run.withSuccessHandler(m=>showResult('キーワード読込完了','対象ブログ: '+currentSiteName+'\n入力ファイル: '+name+'\n総件数: '+m.total+'件\n3語: '+m.three+'件\n4語: '+m.four+'件\n読込フォルダー: '+(m.folderName||folderName)+'\n\n前回ランのCandidates/SERP結果はリセットされ、このファイルの探索ランとして開始しました。','3. ブルーオーシャン候補を探索','screening')).withFailureHandler(showError).sbosImportDriveFileForSite(id,currentSiteKey);
+}
+function selectCurrentFolder(btn){
+  buttonWork(btn,true,'処理中…'); setBusy(true,'保存先フォルダーを設定しています…');
+  google.script.run.withSuccessHandler(m=>showResult('保存先を設定しました','保存先: '+m.folderName+'\n\n今後のSERP精査・カニバリ精査Packageはこのフォルダーへ保存します。','閉じる','close')).withFailureHandler(showError).sbosSetOutputFolder(folderId,folderName);
+}
+function goRoot(){load('')} function goUp(){load(parentId||'')}
+function showError(e){
+  setBusy(false); if(actionBtn)buttonWork(actionBtn,false);
+  const d=(e&&e.message)?e.message:String(e||'不明なエラー');
+  const msg=document.getElementById('msg'); if(msg)msg.textContent='エラー: '+d;
+  const confirm=document.getElementById('confirmBtn'); if(confirm)confirm.disabled=!selectedFile;
+  const next=document.getElementById('nextBtn'); if(next)next.disabled=false;
+  // alertを閉じた後も処理中オーバーレイが残らないよう、次イベントループでも解除を保証する。
+  setTimeout(()=>setBusy(false),0);
+  alert(d);
+}
+(function init(){const m=MODE[pickerMode]||MODE.file;document.getElementById('dialogTitle').textContent=m.title;document.getElementById('guide').textContent=m.guide;load(startFolderId||'')})();
+initSiteGuard();
+</script>
+</body>
+</html>
