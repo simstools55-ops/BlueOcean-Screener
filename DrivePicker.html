@@ -1,4 +1,4 @@
-<!-- SIMS Blue Ocean Screener v0.12.4 -->
+<!-- SIMS Blue Ocean Screener v0.12.7 -->
 <!doctype html>
 <html>
 <head>
@@ -137,7 +137,7 @@ function registerCannibalAnswer(btn){
   const t=document.getElementById('cannibalAnswer').value;
   if(!t.trim()){document.getElementById('cannibalAnswerStatus').textContent='Claude回答全文を貼り付けてください。';return;}
   buttonWork(btn,true,'処理中…');document.getElementById('cannibalAnswerStatus').textContent='回答を検証・登録しています…';
-  google.script.run.withSuccessHandler(r=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='登録完了\n反映: '+r.applied+'件\nGREEN: '+r.green+' / YELLOW: '+r.yellow+' / BLOCK: '+r.block+'\n\n次はCandidatesでGREEN候補を1件選び「6. GREEN候補をCreator処理」へ進んでください。';}).withFailureHandler(e=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='エラー: '+(e&&e.message?e.message:e);}).sbosImportCannibalReviewText(t);
+  google.script.run.withSuccessHandler(r=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='登録完了\n反映: '+r.applied+'件\nGREEN: '+r.green+' / YELLOW: '+r.yellow+' / BLOCK: '+r.block+'\n\n次は候補一覧でGREEN / TRY候補を1件選び、aCreator処理へ進んでください。';document.getElementById('cannibalRegisterBtn').style.display='none';const n=document.getElementById('nextBtn');n.textContent='7. 候補・進捗を確認';n.style.display='inline-block';n.onclick=()=>runNext('candidates');}).withFailureHandler(e=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='エラー: '+(e&&e.message?e.message:e);}).sbosImportCannibalReviewText(t);
 }
 function runNext(action){
   if(!action)return;

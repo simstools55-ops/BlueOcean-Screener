@@ -1,1 +1,1 @@
-feat: GREEN 0件時のTRY救済候補とaCreator依頼導線を追加（Blue Ocean Screener v0.12.6）
+fix: 完了済みボタンを消して次工程ボタンへ切り替える（Blue Ocean Screener v0.12.7）

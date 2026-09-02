@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.12.6
+ * Blue Ocean Screener v0.12.7
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.12.6
+ * Blue Ocean Screener v0.12.7
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.12.6';
+const SBOS_VERSION = '0.12.7';
 
 function onOpen() {
   // v0.9.9: 起動時は重い再構築を行わず、メニューと版数表示だけを更新する。
@@ -1711,7 +1711,7 @@ function sbosShowSerpWorkflowDialog() {
     'button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:white}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}button:disabled{opacity:.7}' +
     '</style></head><body><div class="w"><div class="t">4. SERP精査</div>' +
     '<div class="g">対象サイト: <b>' + sbosEscapeHtml_(siteName) + '</b><br>SERP精査待ち: <b>' + pending + '件</b><br>Package作成から回答登録まで、この画面で続けて処理できます。</div>' +
-    '<div class="b"><div class="l">① SERP精査Packageを作成</div><div id="pkg" class="st">未作成</div><div class="a"><button class="p" onclick="pkg(this)"><span class="sp"></span><span class="tx">Packageを作成</span></button></div></div>' +
+    '<div class="b"><div class="l">① SERP精査Packageを作成</div><div id="pkg" class="st">未作成</div><div class="a"><button id="serpPackageBtn" class="p" onclick="pkg(this)"><span class="sp"></span><span class="tx">Packageを作成</span></button></div></div>' +
     '<div class="b"><div class="l">② Claude回答全文を貼り付け</div><textarea id="ans" placeholder="Claude回答全文をここへ貼り付け"></textarea><div id="rst" class="st">回答待ち</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="nextCandidates" class="p" style="display:none" onclick="goCandidates(this)"><span class="sp"></span><span class="tx">7. 候補・進捗を確認</span></button><button id="nextCannibal" class="p" style="display:none" onclick="goCannibal(this)"><span class="sp"></span><span class="tx">5. カニバリ精査へ</span></button><button id="regSerp" class="p" onclick="reg(this)"><span class="sp"></span><span class="tx">回答を登録</span></button></div></div>' +
     '<script>function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}' +
     'function pkg(b){w(b,true,"処理中…");document.getElementById("pkg").textContent="Packageを作成しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("pkg").textContent="作成完了\\nファイル: "+r.fileName+"\\n保存先: "+r.folderName+"\\n候補: "+r.count+"件\\n\\nこのZIPをClaude.aiへアップロードしてください。";}).withFailureHandler(e=>{w(b,false);document.getElementById("pkg").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosCreateSerpReviewPackageForWorkflow()}' +

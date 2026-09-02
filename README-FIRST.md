@@ -1,4 +1,11 @@
-# Blue Ocean Screener v0.12.6-dev
+# Blue Ocean Screener v0.12.7-dev
+
+
+## v0.12.7-dev — ダイアログの完了後導線を統一
+
+- 完了した処理のボタンは消し、同じ操作を誤って再実行できないようにしました。
+- カニバリ回答登録後は「7. 候補・進捗を確認」を表示します。
+- SERP Package作成後は作成ボタンを消し、次の回答貼付作業へ誘導します。
 
 Blue Ocean Screener は、ロングテール候補の一次選抜、SERP精査、カニバリ精査、aCreator依頼文生成を支援する Google Spreadsheet + Apps Script 製品です。
 
@@ -27,4 +34,4 @@ Blue Ocean Screener は、ロングテール候補の一次選抜、SERP精査�
 
 ## 推奨コミットメッセージ
 
-`feat: GREEN 0件時のTRY救済候補とaCreator依頼導線を追加（Blue Ocean Screener v0.12.6）`
+`fix: 完了済みボタンを消して次工程ボタンへ切り替える（Blue Ocean Screener v0.12.7）`
