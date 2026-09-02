@@ -1,3 +1,14 @@
+
+## v0.12.6-dev
+- GREEN最終0件時の救済枠 `TRY` を追加。
+- SERP YELLOW上位ロングテールをカニバリ精査Packageへ同梱し、GREENが0件の場合のみLOW/MEDIUMかつ非BLOCKをTRY候補として提示。
+- TRYはGREENと明確に分離し、需要・SERP競争・データ不足等のリスクを明示。
+- TRY候補からも利用者判断でaCreator依頼文を生成・処理可能。
+
+## v0.12.5
+- Google Ads Keyword PlannerのUTF-16/TSV・説明行付きエクスポートに対応。
+- 月間検索数、3か月推移、前年比、広告競合性、競合性指数を需要Signalとして一次選抜とSERP精査Packageへ反映。
+- Ads競合性はSEO難易度とは扱わず補助Signalに限定。
 # Changelog
 
 ## v0.12.3 - 2026-09-02

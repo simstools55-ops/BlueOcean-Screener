@@ -1,1 +1,1 @@
-fix: 候補0件時はSERP精査へ進めず再探索候補を表示（Blue Ocean Screener v0.12.4）
+feat: GREEN 0件時のTRY救済候補とaCreator依頼導線を追加（Blue Ocean Screener v0.12.6）
