@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.12.0
+ * Blue Ocean Screener v0.12.1
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.12.0
+ * Blue Ocean Screener v0.12.1
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.12.0';
+const SBOS_VERSION = '0.12.1';
 
 function onOpen() {
   // v0.9.9: 起動時は重い再構築を行わず、メニューと版数表示だけを更新する。
@@ -863,23 +863,42 @@ function sbosListDriveFiles(folderId, pickerMode) {
   const result = [];
   const root = DriveApp.getRootFolder();
   const folder = folderId ? DriveApp.getFolderById(folderId) : root;
+  const MAX_FOLDERS = 100;
+  const MAX_FILES = 300;
+
   const folders = folder.getFolders();
-  while (folders.hasNext()) {
+  let folderCount = 0;
+  while (folders.hasNext() && folderCount < MAX_FOLDERS) {
     const f = folders.next();
-    result.push({type:'folder', id:f.getId(), name:f.getName()});
+    result.push({type:'folder', id:f.getId(), name:f.getName(), modifiedTime:0});
+    folderCount++;
   }
+
   const files = folder.getFiles();
-  while (files.hasNext()) {
+  let scannedFiles = 0;
+  while (files.hasNext() && scannedFiles < MAX_FILES) {
     const f = files.next();
+    scannedFiles++;
     const name = f.getName();
-    const isSerpResult = pickerMode === 'serp_result';
-    const isCannibalEvidence = pickerMode === 'cannibal_evidence';
-    const isCannibalResult = pickerMode === 'cannibal_result';
-    const ok = (isSerpResult || isCannibalResult) ? /\.json$/i.test(name)
-      : (isCannibalEvidence ? /\.(zip|csv|tsv|json)$/i.test(name) : /\.(csv|tsv)$/i.test(name));
-    if (ok) result.push({type:'file', id:f.getId(), name:name, mime:f.getMimeType()});
+    if (!sbosDrivePickerFileAllowed_(name, pickerMode)) continue;
+    let modifiedTime = 0;
+    try { modifiedTime = f.getLastUpdated().getTime(); } catch (e) {}
+    result.push({
+      type:'file',
+      id:f.getId(),
+      name:name,
+      mime:f.getMimeType(),
+      modifiedTime:modifiedTime
+    });
   }
-  result.sort((a,b) => a.type === b.type ? a.name.localeCompare(b.name, 'ja') : (a.type === 'folder' ? -1 : 1));
+
+  result.sort((a,b) => {
+    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+    if (a.type === 'folder') return a.name.localeCompare(b.name, 'ja');
+    const timeDiff = Number(b.modifiedTime || 0) - Number(a.modifiedTime || 0);
+    return timeDiff || a.name.localeCompare(b.name, 'ja');
+  });
+
   let parentId = '';
   if (folderId) {
     const parents = folder.getParents();
@@ -891,6 +910,15 @@ function sbosListDriveFiles(folderId, pickerMode) {
     parentId: parentId,
     items: result
   };
+}
+
+function sbosDrivePickerFileAllowed_(name, pickerMode) {
+  const isSerpResult = pickerMode === 'serp_result';
+  const isCannibalEvidence = pickerMode === 'cannibal_evidence';
+  const isCannibalResult = pickerMode === 'cannibal_result';
+  if (isSerpResult || isCannibalResult) return /\.json$/i.test(name);
+  if (isCannibalEvidence) return /\.(zip|csv|tsv|json)$/i.test(name);
+  return /\.(csv|tsv)$/i.test(name);
 }
 
 
