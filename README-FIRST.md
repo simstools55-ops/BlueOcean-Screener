@@ -1,8 +1,8 @@
-# Blue Ocean Screener v0.12.1
+# Blue Ocean Screener v0.12.2
 
 Blue Ocean Screener は、ロングテール候補の一次選抜、SERP精査、カニバリ精査、aCreator依頼文生成を支援するGoogle Spreadsheet + Apps Script製品です。
 
-## v0.12.1 — Personal Knowledge Separation
+## v0.12.2 — Personal Knowledge Separation
 
 - 配布製品から実サイト名・実記事IDのサンプルを除去しました。
 - サイト名の入力例は「サンプルブログ」、Article IDの入力例は明確な架空値 `A900001` に統一しました。
@@ -12,12 +12,12 @@ Blue Ocean Screener は、ロングテール候補の一次選抜、SERP精査�
 
 ## 正式版
 
-**v0.12.1**
+**v0.12.2**
 
 ## 配布
 
-利用者向け配布物は `distribution/SIMS-BlueOcean-Screener-v0.12.1/` に集約しています。
+利用者向け配布物は `distribution/SIMS-BlueOcean-Screener-v0.12.2/` に集約しています。
 
 ## 推奨コミットメッセージ
 
-`refactor(bos): separate personal knowledge from distributable product (v0.12.1)`
+`refactor(bos): separate personal knowledge from distributable product (v0.12.2)`

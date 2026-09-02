@@ -184,3 +184,11 @@
 - Rebuilt Home as a product-style dashboard.
 - Added product header, site/runtime information, keyword/candidate cards and standard workflow guide.
 - Preserved existing keyword, SERP, cannibalization and Creator handoff logic.
+
+## v0.12.2
+- SERP候補0件時の終了導線を追加し、空のSERP精査画面への遷移を防止。
+- 入力キーワード由来のラッコキーワード再探索候補を表示。
+
+## v0.12.2
+- SERP候補0件時の終了導線を追加。
+- 入力キーワード由来のラッコキーワード再探索候補を表示。

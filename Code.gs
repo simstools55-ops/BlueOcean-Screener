@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.12.1
+ * Blue Ocean Screener v0.12.2
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.12.1
+ * Blue Ocean Screener v0.12.2
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.12.1';
+const SBOS_VERSION = '0.12.2';
 
 function onOpen() {
   // v0.9.9: 起動時は重い再構築を行わず、メニューと版数表示だけを更新する。
@@ -1162,15 +1162,64 @@ function sbosMarkPrimaryCandidates_() {
 // ============================================================================
 function sbosStartScreening() {
   const meta = sbosStartScreeningFromDialog();
-  sbosShowWorkflowResult_(
-    '一次選抜・4語深掘り完了',
-    '<b>SERP精査対象:</b> ' + meta.serpCount + '件<br>' +
-    '<b>新規4語深掘り候補:</b> ' + meta.generated4 + '件<br><br>' +
-    'GENERATED_4WORDは需要未確認です。SERP精査で実在需要と競合を確認するまでGREENにはしません。',
-    '4. SERP精査へ',
-    'sbosShowSerpWorkflowDialog'
-  );
+  sbosShowScreeningResult_(meta);
   return meta;
+}
+
+function sbosShowScreeningResult_(meta) {
+  meta = meta || {};
+  const count = Number(meta.serpCount || 0);
+  if (count > 0) {
+    sbosShowWorkflowResult_(
+      '一次選抜・4語深掘り完了',
+      '<b>SERP精査対象:</b> ' + count + '件<br>' +
+      '<b>新規4語深掘り候補:</b> ' + Number(meta.generated4 || 0) + '件<br><br>' +
+      'GENERATED_4WORDは需要未確認です。SERP精査で実在需要と競合を確認するまでGREENにはしません。',
+      '4. SERP精査へ', 'sbosShowSerpWorkflowDialog'
+    );
+    return;
+  }
+  const seeds = sbosSuggestRakkoRescanSeeds_(8);
+  const seedHtml = seeds.length ? '<br><br><b>別の切り口で再探索する場合</b><br>' +
+    'Step 2で読み込んだキーワードから、ラッコキーワードへ再投入しやすい種キーワードを抽出しました。<br>' +
+    '<div style="margin-top:8px;background:#fff;border:1px solid #dadce0;border-radius:6px;padding:10px;line-height:1.8">' +
+    seeds.map(x => sbosEscapeHtml_(x)).join('<br>') + '</div><br>' +
+    '必要な語をラッコキーワードで調べ、新しいCSVを取得して「2. キーワードファイルを読み込む」から再探索してください。' : '';
+  sbosSetHomeStatus_('今回の探索候補なし');
+  sbosShowWorkflowResult_(
+    '今回の探索は終了です',
+    '<b>SERP精査へ進める候補: 0件</b><br>今回の条件では、SERP精査へ進める有望候補は見つかりませんでした。これはエラーではありません。' + seedHtml,
+    '', ''
+  );
+}
+
+function sbosSuggestRakkoRescanSeeds_(limit) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.KEYWORDS);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const rows = sh.getRange(2,1,sh.getLastRow()-1,13).getValues();
+  const stats = {};
+  rows.forEach(r => {
+    const kw = String(r[3] || '').normalize('NFKC').trim().replace(/\s+/g,' ');
+    if (!kw) return;
+    const parts = kw.split(' ').filter(Boolean);
+    if (!parts.length) return;
+    const candidates = [];
+    if (parts.length >= 2) candidates.push(parts.slice(0,2).join(' '));
+    candidates.push(parts[0]);
+    candidates.forEach(seed => {
+      if (!seed || seed.length < 2) return;
+      if (!stats[seed]) stats[seed] = 0;
+      stats[seed]++;
+    });
+  });
+  const ranked = Object.keys(stats).sort((a,b) => stats[b]-stats[a] || b.split(' ').length-a.split(' ').length || a.localeCompare(b,'ja'));
+  const out = [];
+  ranked.forEach(seed => {
+    if (out.length >= (Number(limit)||8)) return;
+    if (seed.split(' ').length === 1 && out.some(x => x.indexOf(seed+' ') === 0)) return;
+    out.push(seed);
+  });
+  return out;
 }
 
 function sbosStartScreeningFromDialog() {
@@ -1510,6 +1559,12 @@ function sbosShowSerpWorkflowDialog() {
     return;
   }
   const pending = sbosGetSerpPendingCandidates_().length;
+  if (pending === 0) {
+    const seeds = sbosSuggestRakkoRescanSeeds_(8);
+    const seedHtml = seeds.length ? '<br><br><b>再探索候補</b><br>' + seeds.map(x => sbosEscapeHtml_(x)).join('<br>') : '';
+    sbosShowWorkflowResult_('SERP精査対象はありません', '現在、SERP精査待ちの候補は0件です。Step 4の操作は不要です。' + seedHtml, '', '');
+    return;
+  }
   const html = HtmlService.createHtmlOutput(
     '<!doctype html><html><head><base target="_top"><style>' +
     'body{font-family:Arial,sans-serif;margin:0;color:#202124}.w{padding:20px}.t{font-size:20px;font-weight:700}.g{background:#e8f0fe;padding:11px;border-radius:8px;margin:10px 0;line-height:1.6}.b{border:1px solid #dadce0;border-radius:8px;padding:13px;margin-top:12px}.l{font-weight:700;margin-bottom:7px}' +
@@ -2529,14 +2584,7 @@ function sbosResumeBatch() {
   const status = sbosGetState_('status') || '未実行';
   if (status === SBOS_STATUS.IMPORT_DONE || status === SBOS_STATUS.SCREENING_RUNNING) {
     const meta = sbosStartScreeningFromDialog();
-    sbosShowWorkflowResult_(
-      '一次選抜・4語深掘り完了',
-      '<b>SERP精査対象:</b> ' + meta.serpCount + '件<br>' +
-      '<b>新規4語深掘り候補:</b> ' + meta.generated4 + '件<br><br>' +
-      'GENERATED_4WORDは需要未確認です。SERP精査で実在需要と競合を確認するまでGREENにはしません。',
-      '4. SERP精査Packageを作成',
-      'sbosCreateSerpReviewPackage'
-    );
+    sbosShowScreeningResult_(meta);
     return;
   }
   sbosShowWorkflowResult_(

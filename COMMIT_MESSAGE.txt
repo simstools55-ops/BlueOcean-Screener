@@ -1,0 +1,1 @@
+fix: 候補ゼロ時の終了導線とラッコ再探索候補を追加（Blue Ocean Screener v0.12.2）
