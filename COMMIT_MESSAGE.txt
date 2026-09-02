@@ -1,1 +1,1 @@
-fix: 候補ゼロ時の終了導線とラッコ再探索候補を追加（Blue Ocean Screener v0.12.2）
+fix: 候補0件時はSERP精査へ進めず再探索候補を表示（Blue Ocean Screener v0.12.4）

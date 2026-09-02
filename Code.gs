@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.12.2
+ * Blue Ocean Screener v0.12.4
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.12.2
+ * Blue Ocean Screener v0.12.4
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.12.2';
+const SBOS_VERSION = '0.12.4';
 
 function onOpen() {
   // v0.9.9: 起動時は重い再構築を行わず、メニューと版数表示だけを更新する。
@@ -762,11 +762,12 @@ function sbosShowDrivePicker() {
   template.currentSiteKey = sbosCurrentSiteKey_();
   template.filePrefix = '';
   template.fileExtensions = '.csv,.tsv';
+  template.returnAction = '';
   const html = template.evaluate().setWidth(800).setHeight(650);
   SpreadsheetApp.getUi().showModalDialog(html, '2. キーワードファイルを読み込む');
 }
 
-function sbosShowDriveFolderPicker_() {
+function sbosShowDriveFolderPicker_(returnAction) {
   sbosEnsureSheets_();
   const template = HtmlService.createTemplateFromFile('DrivePicker');
   template.currentSiteName = sbosGetSetting_('site_name') || '';
@@ -775,7 +776,9 @@ function sbosShowDriveFolderPicker_() {
   template.filePrefix = '';
   template.fileExtensions = '';
   template.pickerMode = 'folder';
-  template.startFolderId = sbosGetSetting_('output_folder_id') || '';
+  // 保存先が未設定なら、キーワード読込で使ったフォルダーを開始位置にする。
+  template.startFolderId = sbosGetSetting_('output_folder_id') || sbosGetSetting_('input_folder_id') || '';
+  template.returnAction = String(returnAction || '');
   const html = template.evaluate().setWidth(800).setHeight(590);
   SpreadsheetApp.getUi().showModalDialog(html, '保存先フォルダーを選ぶ');
 }
@@ -788,6 +791,7 @@ function sbosShowSerpResultPicker() {
   template.currentSiteKey = sbosCurrentSiteKey_() || '';
   template.filePrefix = '';
   template.fileExtensions = '';
+  template.returnAction = '';
   template.pickerMode = 'serp_result';
   template.startFolderId = sbosGetSetting_('output_folder_id') || '';
   const html = template.evaluate().setWidth(800).setHeight(590);
@@ -811,6 +815,7 @@ function sbosShowCannibalEvidencePicker() {
   template.currentSiteKey = sbosCurrentSiteKey_() || '';
   template.filePrefix = 'SIMS-Evidence';
   template.fileExtensions = '.zip';
+  template.returnAction = '';
   template.pickerMode = 'cannibal_evidence';
   template.startFolderId = sbosGetSetting_('output_folder_id') || '';
   const html = template.evaluate().setWidth(800).setHeight(590);
@@ -826,6 +831,7 @@ function sbosShowCannibalResultPicker() {
   template.currentSiteKey = sbosCurrentSiteKey_() || '';
   template.filePrefix = '';
   template.fileExtensions = '';
+  template.returnAction = '';
   template.pickerMode = 'cannibal_result';
   template.startFolderId = sbosGetSetting_('output_folder_id') || '';
   const html = template.evaluate().setWidth(800).setHeight(590);
@@ -844,6 +850,33 @@ function sbosSetOutputFolder(folderId, folderName) {
     sbosSetSetting_('input_folder_name', name);
   }
   return {folderId:id, folderName:name};
+}
+
+function sbosEnsureOutputFolderForWorkflow_() {
+  const outputId = String(sbosGetSetting_('output_folder_id') || '');
+  const outputName = String(sbosGetSetting_('output_folder_name') || '');
+  if (outputId || outputName === 'マイドライブ') {
+    return {configured:true, autoSet:false, id:outputId, name:outputName || 'マイドライブ'};
+  }
+
+  // 初回は、Step 2でキーワードを読み込んだフォルダーをPackage保存先として自動採用する。
+  // BOSの通常運用では入力元とPackage保存先を同じEvidenceフォルダーにするため、
+  // 追加の保存先確認で作業を中断しない。
+  const inputId = String(sbosGetSetting_('input_folder_id') || '');
+  const inputName = String(sbosGetSetting_('input_folder_name') || '');
+  if (inputId) {
+    const folder = DriveApp.getFolderById(inputId);
+    const name = folder.getName();
+    sbosSetSetting_('output_folder_id', inputId);
+    sbosSetSetting_('output_folder_name', name);
+    return {configured:true, autoSet:true, id:inputId, name:name};
+  }
+  if (inputName === 'マイドライブ') {
+    sbosSetSetting_('output_folder_id', '');
+    sbosSetSetting_('output_folder_name', 'マイドライブ');
+    return {configured:true, autoSet:true, id:'', name:'マイドライブ'};
+  }
+  return {configured:false, autoSet:false, id:'', name:''};
 }
 
 function sbosGetOutputFolder_() {
@@ -1292,14 +1325,26 @@ function sbosRunScreening_() {
   const limited = combined.slice(0, SBOS_THRESHOLDS.MAX_SERP_QUEUE);
 
   sbosWriteCandidates_(limited);
-  sbosSetState_('status', SBOS_STATUS.SERP_RUNNING);
   sbosSetState_('generated_4word_count', generated.length);
-  sbosSetHomeStatus_('SERP精査待ち');
+
+  // v0.12.4: 候補0件をSERP工程へ流さない。探索結果として正常終了し、
+  // 次回のラッコキーワード再探索に使える種キーワードを返す。
+  const actualPending = sbosGetSerpPendingCandidates_().length;
+  const noCandidates = actualPending === 0;
+  if (noCandidates) {
+    sbosSetState_('status', SBOS_STATUS.COMPLETE);
+    sbosSetHomeStatus_('今回の探索候補なし');
+  } else {
+    sbosSetState_('status', SBOS_STATUS.SERP_RUNNING);
+    sbosSetHomeStatus_('SERP精査待ち');
+  }
   sbosSaveCurrentBlogSession_();
 
   return {
-    serpCount: limited.length,
-    generated4: generated.length
+    serpCount: actualPending,
+    generated4: generated.length,
+    noCandidates: noCandidates,
+    rescanSeeds: noCandidates ? sbosSuggestRakkoRescanSeeds_(8) : []
   };
 }
 
@@ -1454,17 +1499,14 @@ function sbosCreateSerpReviewPackage(options) {
     if (!siteName || !siteUrl) return;
   }
 
-  const folderId = sbosGetSetting_('output_folder_id');
-  const folderName = sbosGetSetting_('output_folder_name');
-  if (!folderId && !folderName) {
-    ui.alert(
-      '保存先が未設定です',
-      '「追加の操作 → 保存先を設定する」でGoogle Driveの保存先フォルダーを選んでから、もう一度実行してください。',
-      ui.ButtonSet.OK
-    );
-    sbosShowDriveFolderPicker_();
+  const ensuredOutput = sbosEnsureOutputFolderForWorkflow_();
+  if (!ensuredOutput.configured) {
+    if (suppressDialog) throw new Error('保存先フォルダーが未設定です。SERP精査画面から保存先を設定してください。');
+    sbosShowDriveFolderPicker_('serp_workflow');
     return;
   }
+  const folderId = ensuredOutput.id;
+  const folderName = ensuredOutput.name;
 
   const values = sh.getRange(2,1,sh.getLastRow()-1,18).getDisplayValues();
   const candidates = values.filter(r => sbosStatusCode_(r[12]) === 'PENDING' || r[12] === 'REQUESTED').map(r => ({
@@ -1563,6 +1605,12 @@ function sbosShowSerpWorkflowDialog() {
     const seeds = sbosSuggestRakkoRescanSeeds_(8);
     const seedHtml = seeds.length ? '<br><br><b>再探索候補</b><br>' + seeds.map(x => sbosEscapeHtml_(x)).join('<br>') : '';
     sbosShowWorkflowResult_('SERP精査対象はありません', '現在、SERP精査待ちの候補は0件です。Step 4の操作は不要です。' + seedHtml, '', '');
+    return;
+  }
+  const output = sbosEnsureOutputFolderForWorkflow_();
+  if (!output.configured) {
+    // Step 4を開く前に保存先を設定し、設定後は同じSERP精査フローへ戻れるようにする。
+    sbosShowDriveFolderPicker_('serp_workflow');
     return;
   }
   const html = HtmlService.createHtmlOutput(
