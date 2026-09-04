@@ -1,3 +1,11 @@
+## v0.13.6
+
+- Freeze audit consistency fix.
+- Synchronized Repository `distribution/` with the external 5-file Distribution package, including `WEB-MANUAL.md`.
+- Updated `personal_knowledge_separation_test.js` to validate the current release version instead of the obsolete v0.11.0 constant.
+- Synchronized Code.gs, DrivePicker.html, VERSION, PRODUCT_IDENTITY, README and Web manual to v0.13.6.
+- No screening, scoring, SERP, cannibal, TRY, or decision-logic changes from v0.13.5.
+
 ## v0.13.5
 
 - Distribution Final.

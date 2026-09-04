@@ -1,12 +1,12 @@
-# SIMS Blue Ocean Screener v0.13.5
+# SIMS Blue Ocean Screener v0.13.6
 
 SIMS Blue Ocean Screener は、ロングテールキーワード候補を選別し、ClaudeによるSERP精査、必要に応じたカニバリ確認、新規記事候補の確定、aCreator向け依頼文作成までを支援する Google Spreadsheet + Apps Script 製品です。
 
 ## 1. このバージョンについて
 
-v0.13.5 は利用者配布版の整合を完了した Distribution Final です。
+v0.13.6 は利用者配布版の整合を完了した Distribution Final です。
 
-- `Code.gs`、`DrivePicker.html`、README、配布ZIPの版数を v0.13.5 に統一。
+- `Code.gs`、`DrivePicker.html`、README、配布ZIPの版数を v0.13.6 に統一。
 - Package作成ボタン押下直後に「Package作成中…」とスピナーを表示。
 - SERPダイアログは `Code.gs` 内で生成し、追加HTMLファイルへの依存をなくしています。
 - 新規サイト立ち上げ向けの専用探索モードを搭載。
@@ -88,12 +88,13 @@ SERP精査やカニバリ精査では、画面からPackageを作成します。
 
 ## 7. 配布ファイル
 
-利用者配布ZIPには次の4ファイルを収録しています。
+利用者配布ZIPには次の5ファイルを収録しています。
 
 - `Code.gs`
 - `DrivePicker.html`
 - `appsscript.json`
 - `README-FIRST.md`
+- `WEB-MANUAL.md`
 
 開発用CHANGELOG、旧Release Notes、テストコード、コミットメッセージ、個人固有情報は利用者配布ZIPには含めません。
 
@@ -107,5 +108,5 @@ SERP精査やカニバリ精査では、画面からPackageを作成します。
 ---
 
 Product: SIMS Blue Ocean Screener  
-Version: 0.13.5  
+Version: 0.13.6  
 Release type: Distribution Final

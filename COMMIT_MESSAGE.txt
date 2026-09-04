@@ -1,1 +1,1 @@
-chore(release): finalize SIMS Blue Ocean Screener v0.13.5 distribution
+chore(release): finalize SIMS Blue Ocean Screener v0.13.6 freeze audit fix
