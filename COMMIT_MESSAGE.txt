@@ -1,1 +1,1 @@
-chore(release): freeze Blue Ocean Screener v0.12.8 UI and distribution
+feat: add new-site keyword discovery mode to Blue Ocean Screener v0.13.0

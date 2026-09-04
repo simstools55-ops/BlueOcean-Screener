@@ -181,7 +181,7 @@ function confirmSelection(btn){
     google.script.run.withSuccessHandler(m=>{buttonWork(btn,false);showCannibalCombinedResult(m)}).withFailureHandler(showError).sbosCreateCannibalReviewPackageFromEvidence(id);return;
   }
   setBusy(true,'キーワードファイルを読み込んでいます…');
-  google.script.run.withSuccessHandler(m=>showResult('キーワード読込完了','対象ブログ: '+currentSiteName+'\n入力ファイル: '+name+'\n総件数: '+m.total+'件\n3語: '+m.three+'件\n4語: '+m.four+'件\n読込フォルダー: '+(m.folderName||folderName)+'\n\n前回ランのCandidates/SERP結果はリセットされ、このファイルの探索ランとして開始しました。','3. ブルーオーシャン候補を探索','screening')).withFailureHandler(showError).sbosImportDriveFileForSite(id,currentSiteKey);
+  google.script.run.withSuccessHandler(m=>showResult('キーワード読込完了',(currentSiteKey==='NEW_SITE'?'モード: 新規サイト用キーワード探索':'対象サイト: '+currentSiteName)+'\n入力ファイル: '+name+'\n総件数: '+m.total+'件\n3語: '+m.three+'件\n4語: '+m.four+'件\n読込フォルダー: '+(m.folderName||folderName)+'\n\n前回ランのCandidates/SERP結果はリセットされ、このファイルの探索ランとして開始しました。','3. ブルーオーシャン候補を探索','screening')).withFailureHandler(showError).sbosImportDriveFileForSite(id,currentSiteKey);
 }
 function selectCurrentFolder(btn){
   buttonWork(btn,true,'処理中…'); setBusy(true,'保存先フォルダーを設定しています…');

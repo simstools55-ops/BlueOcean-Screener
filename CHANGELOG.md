@@ -1,3 +1,10 @@
+## v0.13.0
+- Added dedicated NEW_SITE keyword discovery mode.
+- Added new-site suitability scoring and deterministic GREEN/YELLOW/BLOCK gates.
+- NEW_SITE skips target-site identity, Evidence cannibal review, TRY rescue, and aCreator routing.
+- Added new-site evaluation columns to Candidates.
+- Existing-site workflow and decision logic remain unchanged.
+
 ## v0.12.8
 - Freeze Candidate after v0.12.1-v0.12.7 operational-test accumulation.
 - Unified all user-facing workflow numbering to the current 7-step menu.
