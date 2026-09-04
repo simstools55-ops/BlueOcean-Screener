@@ -1,4 +1,17 @@
-# Blue Ocean Screener v0.13.3
+# Blue Ocean Screener v0.13.4
+
+## v0.13.4 — SERPダイアログをCode.gsへ再統合
+
+v0.13.3で追加した `SerpWorkflow.html` がApps Script側へ追加されていない場合、`HTMLファイルは見つかりませんでした` で停止する問題がありました。
+
+- `SerpWorkflow.html` 依存を廃止。
+- SERPダイアログを `Code.gs` 内の `sbosBuildSerpWorkflowHtml_()` で生成。
+- 追加HTMLファイルなしで動作。
+- `addEventListener` によるPackage作成ボタンのクリック処理を維持。
+- Package作成中の大きなスピナー・オーバーレイを維持。
+- v0.13.2のPackage作成軽量化、一括状態更新、停止工程診断、処理時間計測を維持。
+- 判定ロジックは変更していません。
+
 
 ## v0.13.3 — SERPダイアログを独立HTML化
 

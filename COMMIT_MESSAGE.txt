@@ -1,1 +1,1 @@
-fix(ui): rebuild SERP dialog event handling in Blue Ocean Screener v0.13.3
+fix(ui): remove SerpWorkflow HTML dependency in Blue Ocean Screener v0.13.4

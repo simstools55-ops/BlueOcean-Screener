@@ -1,3 +1,8 @@
+## v0.13.4
+- Removed external SerpWorkflow.html runtime dependency.
+- Re-integrated SERP dialog into Code.gs while retaining explicit event handling.
+- No scoring/decision changes.
+
 ## v0.13.3
 - Rebuilt SERP workflow dialog as dedicated HTML.
 - Replaced inline onclick handlers with explicit event listeners.

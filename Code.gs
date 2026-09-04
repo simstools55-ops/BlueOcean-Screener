@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.13.3
+ * Blue Ocean Screener v0.13.4
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.13.3
+ * Blue Ocean Screener v0.13.4
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.13.3';
+const SBOS_VERSION = '0.13.4';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -1925,14 +1925,114 @@ function sbosShowSerpWorkflowDialog() {
     return;
   }
 
-  const template = HtmlService.createTemplateFromFile('SerpWorkflow');
-  template.isNewSite = isNewSite;
-  template.siteName = siteName;
-  template.pendingCount = pending;
-  template.productVersion = SBOS_VERSION;
+  const html = HtmlService.createHtmlOutput(
+    sbosBuildSerpWorkflowHtml_(isNewSite, siteName, pending)
+  ).setWidth(780).setHeight(720);
 
-  const html = template.evaluate().setWidth(780).setHeight(720);
   SpreadsheetApp.getUi().showModalDialog(html, '4. SERP精査');
+}
+
+function sbosBuildSerpWorkflowHtml_(isNewSite, siteName, pending) {
+  const modeInfo = isNewSite
+    ? 'モード: <b>新規サイト用キーワード探索</b><br>カニバリ判定: <b>実施しない</b><br>'
+    : '対象サイト: <b>' + sbosEscapeHtml_(siteName) + '</b><br>';
+  const newSiteJs = isNewSite ? 'true' : 'false';
+
+  return '<!doctype html>' +
+    '<html><head><base target="_top"><style>' +
+    'body{font-family:Arial,sans-serif;margin:0;color:#202124;background:#fff}' +
+    '.w{padding:20px}.t{font-size:20px;font-weight:700}' +
+    '.g{background:#e8f0fe;padding:11px;border-radius:8px;margin:10px 0;line-height:1.6}' +
+    '.b{border:1px solid #dadce0;border-radius:8px;padding:13px;margin-top:12px}' +
+    '.l{font-weight:700;margin-bottom:7px}' +
+    'textarea{width:100%;height:235px;box-sizing:border-box;border:1px solid #dadce0;border-radius:7px;padding:10px;font-family:monospace;font-size:12px}' +
+    '.st{background:#f8fafd;border-radius:6px;padding:9px;margin-top:8px;font-size:12px;white-space:pre-wrap;line-height:1.5}' +
+    '.a{display:flex;justify-content:flex-end;gap:8px;margin-top:9px}' +
+    'button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}' +
+    '.p{background:#1a73e8;color:#fff}.s{background:#f1f3f4}' +
+    'button:disabled{opacity:.75;cursor:default}' +
+    '.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite}' +
+    '.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}' +
+    '.ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.92);z-index:9999;align-items:center;justify-content:center}' +
+    '.ov.on{display:flex}.ovbox{text-align:center;font-weight:700;font-size:17px;color:#174ea6;padding:24px}' +
+    '.bigsp{width:48px;height:48px;border:5px solid #d2e3fc;border-top-color:#1a73e8;border-radius:50%;animation:r .75s linear infinite;margin:0 auto 16px}' +
+    '.ovsub{font-size:12px;font-weight:400;color:#5f6368;margin-top:8px;white-space:pre-wrap}' +
+    '.debug{font-size:11px;color:#5f6368;margin-top:6px}' +
+    '</style></head><body>' +
+
+    '<div id="pkgOverlay" class="ov"><div class="ovbox"><div class="bigsp"></div>' +
+    '<div>Packageを作成しています…</div>' +
+    '<div id="overlaySub" class="ovsub">画面表示を更新しています。</div></div></div>' +
+
+    '<div class="w"><div class="t">4. SERP精査</div>' +
+    '<div class="g">' + modeInfo +
+    'SERP精査待ち: <b>' + Number(pending || 0) + '件</b><br>' +
+    'Package作成から回答登録まで、この画面で続けて処理できます。</div>' +
+
+    '<div class="b"><div class="l">① SERP精査Packageを作成</div>' +
+    '<div id="pkg" class="st">未作成</div>' +
+    '<div class="a"><button id="serpPackageBtn" type="button" class="p">' +
+    '<span class="sp"></span><span class="tx">Packageを作成</span></button></div></div>' +
+
+    '<div class="b"><div class="l">② Claude回答全文を貼り付け</div>' +
+    '<textarea id="ans" placeholder="Claude回答全文をここへ貼り付け"></textarea>' +
+    '<div id="rst" class="st">回答待ち</div><div class="a">' +
+    '<button id="closeBtn" type="button" class="s">閉じる</button>' +
+    '<button id="nextCandidates" type="button" class="p" style="display:none"><span class="sp"></span><span class="tx">7. 候補・進捗を確認</span></button>' +
+    '<button id="nextCannibal" type="button" class="p" style="display:none"><span class="sp"></span><span class="tx">5. カニバリ精査へ</span></button>' +
+    '<button id="regSerp" type="button" class="p"><span class="sp"></span><span class="tx">回答を登録</span></button>' +
+    '</div></div><div class="debug">Blue Ocean Screener v' + SBOS_VERSION + '</div></div>' +
+
+    '<script>(function(){"use strict";' +
+    'var newSiteMode=' + newSiteJs + ';' +
+    'function q(id){return document.getElementById(id)}' +
+    'function busy(b,on,text){if(!b)return;var t=b.querySelector(".tx");if(on){b.dataset.oldLabel=t?t.textContent:"";if(t)t.textContent=text||"処理中…";b.classList.add("working");b.disabled=true}else{if(t)t.textContent=b.dataset.oldLabel||"実行";b.classList.remove("working");b.disabled=false}}' +
+    'function showOv(msg){q("overlaySub").textContent=msg||"しばらくお待ちください。";q("pkgOverlay").classList.add("on")}' +
+    'function hideOv(){q("pkgOverlay").classList.remove("on")}' +
+
+    'function createPackage(){' +
+      'var b=q("serpPackageBtn"),s=q("pkg");' +
+      'busy(b,true,"Package作成中…");' +
+      's.textContent="Packageを作成しています…";' +
+      'showOv("候補を確認してZIPを準備しています。\\nGoogle Driveへの保存完了までお待ちください。");' +
+      'setTimeout(function(){' +
+        'google.script.run.withSuccessHandler(function(r){' +
+          'hideOv();' +
+          's.textContent="作成完了\\nファイル: "+r.fileName+"\\n保存先: "+r.folderName+"\\n候補: "+r.count+"件\\n処理時間: "+((r.elapsedMs||0)/1000).toFixed(1)+"秒\\n\\nこのZIPをClaude.aiへアップロードしてください。";' +
+          'b.style.display="none";' +
+        '}).withFailureHandler(function(e){' +
+          'hideOv();busy(b,false);' +
+          's.textContent="エラー\\n"+(e&&e.message?e.message:String(e));' +
+        '}).sbosCreateSerpReviewPackageForWorkflow();' +
+      '},150);' +
+    '}' +
+
+    'function registerSerp(){' +
+      'var b=q("regSerp"),ans=q("ans").value,s=q("rst");' +
+      'if(!ans.trim()){s.textContent="Claude回答全文を貼り付けてください。";return}' +
+      'busy(b,true,"処理中…");s.textContent="回答を検証・登録しています…";' +
+      'google.script.run.withSuccessHandler(function(r){' +
+        'busy(b,false);' +
+        's.textContent="登録完了\\n反映: "+r.applied+"件\\nGREEN: "+r.green+" / YELLOW: "+r.yellow+" / BLOCK: "+r.block+(r.newSiteMode?"\\n新規サイト適性評価を反映済み":"");' +
+        'b.style.display="none";' +
+        'if(newSiteMode){q("nextCandidates").style.display="inline-flex"}else if(r.green>0||r.yellow>0){q("nextCannibal").style.display="inline-flex"}else{q("nextCandidates").style.display="inline-flex"}' +
+      '}).withFailureHandler(function(e){' +
+        'busy(b,false);s.textContent="エラー: "+(e&&e.message?e.message:String(e))+(newSiteMode?"\\n\\n新規サイト探索では new_site_fit_score / new_site_dimensions / new_site_assessment を含む完全JSONが必要です。":"");' +
+      '}).sbosImportSerpReviewText(ans);' +
+    '}' +
+
+    'function goCandidates(){var b=q("nextCandidates");busy(b,true,"処理中…");google.script.run.withSuccessHandler(function(){google.script.host.close()}).withFailureHandler(function(e){busy(b,false);q("rst").textContent="エラー: "+(e&&e.message?e.message:String(e))}).sbosOpenCandidates()}' +
+    'function goCannibal(){var b=q("nextCannibal");busy(b,true,"処理中…");google.script.run.withSuccessHandler(function(){google.script.host.close()}).withFailureHandler(function(e){busy(b,false);q("rst").textContent="エラー: "+(e&&e.message?e.message:String(e))}).sbosShowCannibalEvidencePicker()}' +
+
+    'function bind(){' +
+      'q("serpPackageBtn").addEventListener("click",createPackage);' +
+      'q("regSerp").addEventListener("click",registerSerp);' +
+      'q("nextCandidates").addEventListener("click",goCandidates);' +
+      'q("nextCannibal").addEventListener("click",goCannibal);' +
+      'q("closeBtn").addEventListener("click",function(){google.script.host.close()});' +
+    '}' +
+    'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",bind)}else{bind()}' +
+    '})();</script></body></html>';
 }
 
 function sbosBuildSerpPackageReadme_(p) {
