@@ -1,1 +1,1 @@
-fix(ui): remove SerpWorkflow HTML dependency in Blue Ocean Screener v0.13.4
+chore(release): finalize SIMS Blue Ocean Screener v0.13.5 distribution

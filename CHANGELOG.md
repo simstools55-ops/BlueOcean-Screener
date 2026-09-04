@@ -1,3 +1,10 @@
+## v0.13.5
+
+- Distribution Final.
+- Version strings synchronized across Code.gs, DrivePicker.html, VERSION and distribution package.
+- README-FIRST rewritten for end-user installation and operation.
+- No scoring or decision logic changes from v0.13.4.
+
 ## v0.13.4
 - Removed external SerpWorkflow.html runtime dependency.
 - Re-integrated SERP dialog into Code.gs while retaining explicit event handling.

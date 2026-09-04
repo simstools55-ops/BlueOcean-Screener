@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.13.4
+ * Blue Ocean Screener v0.13.5
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.13.4
+ * Blue Ocean Screener v0.13.5
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.13.4';
+const SBOS_VERSION = '0.13.5';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
