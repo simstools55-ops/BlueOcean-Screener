@@ -1,4 +1,13 @@
-# Blue Ocean Screener v0.13.2
+# Blue Ocean Screener v0.13.3
+
+## v0.13.3 — SERPダイアログを独立HTML化
+
+- SERPダイアログをCode.gs内の巨大なHTML文字列から `SerpWorkflow.html` へ分離。
+- `onclick` 依存をやめ、`DOMContentLoaded` + `addEventListener` でPackage作成ボタンを確実に登録。
+- ボタン押下直後に「Package作成中…」へ切替え、画面全体の大きなスピナーを表示。
+- 150ms後にApps Scriptを呼び、処理中表示を先に描画。
+- v0.13.2のPackage作成軽量化、一括状態更新、停止工程診断、処理時間計測は維持。
+- 判定ロジックは変更していません。
 
 ## v0.13.2 — SERP Package作成処理を軽量化・可視化
 

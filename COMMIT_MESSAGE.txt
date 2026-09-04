@@ -1,1 +1,1 @@
-fix: optimize and instrument SERP package creation in Blue Ocean Screener v0.13.2
+fix(ui): rebuild SERP dialog event handling in Blue Ocean Screener v0.13.3

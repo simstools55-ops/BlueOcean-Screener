@@ -1,3 +1,9 @@
+## v0.13.3
+- Rebuilt SERP workflow dialog as dedicated HTML.
+- Replaced inline onclick handlers with explicit event listeners.
+- Retained Package processing optimization and diagnostics.
+- No scoring/decision changes.
+
 ## v0.13.2
 - Optimized SERP Package creation.
 - Added stage diagnostics, elapsed-time reporting, batch status updates and visible processing overlay.
