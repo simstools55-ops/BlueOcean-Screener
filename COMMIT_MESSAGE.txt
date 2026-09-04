@@ -1,1 +1,1 @@
-fix: harden new-site Claude import and Home UI in Blue Ocean Screener v0.13.1
+fix: optimize and instrument SERP package creation in Blue Ocean Screener v0.13.2

@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.13.1
+ * Blue Ocean Screener v0.13.2
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.13.1
+ * Blue Ocean Screener v0.13.2
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.13.1';
+const SBOS_VERSION = '0.13.2';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -1712,130 +1712,180 @@ function sbosSortCandidatesByStatus_() {
 function sbosCreateSerpReviewPackage(options) {
   options = options || {};
   const suppressDialog = options.suppressDialog === true;
-  sbosEnsureSheets_();
   const ui = SpreadsheetApp.getUi();
-  const sh = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
-  if (!sh || sh.getLastRow() < 2) {
-    ui.alert('SERP精査対象がありません', '先に「3. ブルーオーシャン候補を探す」を実行してください。', ui.ButtonSet.OK);
-    return;
-  }
+  const startedAt = new Date().getTime();
+  const timing = {};
+  let stage = '開始';
 
-  const isNewSite = sbosIsNewSiteMode_();
-  let siteName = isNewSite ? '' : sbosGetSetting_('site_name');
-  let siteUrl = isNewSite ? '' : sbosGetSetting_('site_url');
-  if (!isNewSite && (!siteName || !siteUrl)) {
-    const r = ui.alert(
-      '対象サイトが未設定です',
-      'SERP精査では対象サイトとの適合性も評価します。今ここで対象サイトを設定しますか？',
-      ui.ButtonSet.YES_NO
+  try {
+    stage = 'Candidates確認';
+    // Package作成では全シート再初期化は不要。
+    // sbosEnsureSheets_() はHome再描画・Candidates再書式化を伴うため呼ばない。
+    const ss = SpreadsheetApp.getActive();
+    const sh = ss.getSheetByName(SBOS_SHEETS.CANDIDATES);
+    if (!sh || sh.getLastRow() < 2) {
+      if (suppressDialog) throw new Error('SERP精査対象がありません。先に「3. ブルーオーシャン候補を探す」を実行してください。');
+      ui.alert('SERP精査対象がありません', '先に「3. ブルーオーシャン候補を探す」を実行してください。', ui.ButtonSet.OK);
+      return;
+    }
+    timing.candidatesCheckMs = new Date().getTime() - startedAt;
+
+    stage = 'モード・対象確認';
+    const isNewSite = sbosIsNewSiteMode_();
+    let siteName = isNewSite ? '' : sbosGetSetting_('site_name');
+    let siteUrl = isNewSite ? '' : sbosGetSetting_('site_url');
+    if (!isNewSite && (!siteName || !siteUrl)) {
+      if (suppressDialog) throw new Error('対象サイトが未設定です。');
+      const r = ui.alert(
+        '対象サイトが未設定です',
+        'SERP精査では対象サイトとの適合性も評価します。今ここで対象サイトを設定しますか？',
+        ui.ButtonSet.YES_NO
+      );
+      if (r !== ui.Button.YES) return;
+      sbosShowSiteSettings();
+      return;
+    }
+
+    stage = '保存先確認';
+    const tOutput = new Date().getTime();
+    const ensuredOutput = sbosEnsureOutputFolderForWorkflow_();
+    timing.outputFolderMs = new Date().getTime() - tOutput;
+    if (!ensuredOutput.configured) {
+      if (suppressDialog) throw new Error('保存先フォルダーが未設定です。SERP精査画面から保存先を設定してください。');
+      sbosShowDriveFolderPicker_('serp_workflow');
+      return;
+    }
+    const folderName = ensuredOutput.name;
+
+    stage = '候補読込';
+    const tRead = new Date().getTime();
+    const values = sh.getRange(2,1,sh.getLastRow()-1,18).getDisplayValues();
+    const candidates = values
+      .filter(r => sbosStatusCode_(r[12]) === 'PENDING' || r[12] === 'REQUESTED')
+      .map(r => ({
+        rank: Number(r[17]) || 0,
+        main_keyword: r[2],
+        words: Number(r[3]) || 0,
+        pre_score: Number(r[4]) || 0,
+        search_intent: r[7],
+        source: r[9],
+        intent_key: r[11],
+        source_metrics: r[8] || ''
+      }));
+    timing.candidateReadMs = new Date().getTime() - tRead;
+
+    if (!candidates.length) {
+      if (suppressDialog) throw new Error('PENDINGのSERP候補がありません。');
+      ui.alert('Package対象がありません', 'PENDINGのSERP候補がありません。', ui.ButtonSet.OK);
+      return;
+    }
+
+    stage = '依頼データ生成';
+    const tBuild = new Date().getTime();
+    const requestId = 'SBOS-SERP-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyyMMdd-HHmmss');
+    const inputFile = sbosGetState_('input_file_name') || '未選択';
+    const payload = {
+      format: 'SIMS_BOS_SERP_REVIEW_REQUEST_V1',
+      contract_version: '1.0',
+      product: SBOS_PRODUCT_NAME,
+      product_version: SBOS_VERSION,
+      request_id: requestId,
+      generated_at: sbosNow_(),
+      mode: isNewSite ? SBOS_MODE.NEW_SITE : SBOS_MODE.EXISTING_SITE,
+      site: {name: siteName, url: siteUrl},
+      input_file: inputFile,
+      candidate_count: candidates.length,
+      evaluation_policy: isNewSite ? {
+        purpose: '対象サイトを前提にせず、新規サイト立ち上げ向けのBlue Oceanキーワードを実SERPで精査する',
+        do_not_assume_volume_zero_means_no_demand: true,
+        require_web_verification: true,
+        skip_cannibalization_check: true,
+        disable_try_rescue: true,
+        final_green_in_serp_stage: true,
+        new_site_dimensions: ['entry_ease','demand','serp_gap','expansion','cluster_potential','continuity','risk'],
+        green_gate: 'blue_ocean_score>=80 AND new_site_fit_score>=80 AND cluster_potential>=70 AND risk<=60',
+        yellow_gate: 'blue_ocean_score>=65 AND new_site_fit_score>=65 AND risk<=75',
+        keyword_planner_metrics_policy: '月間検索数・3か月推移・前年比は需要Signalとして利用する。Google Ads競合性はSEO難易度と同一視せず、広告主需要の補助情報としてのみ扱う'
+      } : {
+        purpose: '個人ブログが上位表示を狙える3語・4語ロングテールのBlue Ocean候補を実SERPで精査する',
+        do_not_assume_volume_zero_means_no_demand: true,
+        require_web_verification: true,
+        do_not_finalize_article_green_before_cannibalization_check: true,
+        keyword_planner_metrics_policy: '月間検索数・3か月推移・前年比は需要Signalとして利用する。Google Ads競合性はSEO難易度と同一視せず、広告主需要の補助情報としてのみ扱う'
+      },
+      candidates: candidates
+    };
+    const md = sbosBuildSerpReviewRequestMarkdown_(payload);
+    const jsonText = JSON.stringify(payload, null, 2);
+    const readme = sbosBuildSerpPackageReadme_(payload);
+    timing.payloadBuildMs = new Date().getTime() - tBuild;
+
+    stage = 'ZIP生成';
+    const tZip = new Date().getTime();
+    const blobs = [
+      Utilities.newBlob(readme, 'text/markdown', 'README-FIRST.md'),
+      Utilities.newBlob(md, 'text/markdown', 'SERP-REVIEW-REQUEST.md'),
+      Utilities.newBlob(jsonText, 'application/json', 'SERP_REVIEW_REQUEST_V1.json')
+    ];
+    const safeSite = sbosSafeFilename_(isNewSite ? 'New-Site' : (siteName || 'Unassigned-Site'));
+    const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyyMMdd-HHmmss');
+    const zipName = 'SIMS-BOS-' + safeSite + '-Claude-SERP-Review-' + stamp + '.zip';
+    const zipBlob = Utilities.zip(blobs, zipName);
+    timing.zipBuildMs = new Date().getTime() - tZip;
+
+    stage = 'Google Drive保存';
+    const tDrive = new Date().getTime();
+    const outFolder = sbosGetOutputFolder_();
+    const folder = outFolder.folder;
+    const file = folder.createFile(zipBlob);
+    timing.driveSaveMs = new Date().getTime() - tDrive;
+
+    stage = '候補状態更新';
+    const tStatus = new Date().getTime();
+    const statusValues = values.map(r => [
+      sbosStatusCode_(r[12]) === 'PENDING' ? 'REQUESTED' : r[12]
+    ]);
+    sh.getRange(2,13,statusValues.length,1).setValues(statusValues);
+    timing.statusUpdateMs = new Date().getTime() - tStatus;
+
+    stage = '状態保存';
+    const tState = new Date().getTime();
+    sbosSetState_('serp_request_id', requestId);
+    sbosSetState_('serp_package_file_id', file.getId());
+    sbosSetState_('serp_package_file_name', zipName);
+    sbosSetHomeStatus_('SERP精査依頼Package作成済み');
+    timing.stateSaveMs = new Date().getTime() - tState;
+    timing.totalMs = new Date().getTime() - startedAt;
+
+    if (!suppressDialog) {
+      sbosShowWorkflowResult_(
+        'SERP精査依頼Packageを作成しました',
+        '<b>候補:</b> ' + candidates.length + '件<br>' +
+        '<b>ファイル名:</b> ' + sbosEscapeHtml_(zipName) + '<br>' +
+        '<b>保存先:</b> ' + sbosEscapeHtml_(folderName || folder.getName() || 'マイドライブ') + '<br>' +
+        '<b>処理時間:</b> ' + (timing.totalMs / 1000).toFixed(1) + '秒<br><br>' +
+        'このZIPをClaude.aiへアップロードしてSERP精査を依頼してください。',
+        '',
+        ''
+      );
+    }
+    return {
+      count:candidates.length,
+      fileName:zipName,
+      folderName:(folderName || folder.getName() || 'マイドライブ'),
+      requestId:requestId,
+      elapsedMs:timing.totalMs,
+      timing:timing
+    };
+  } catch (e) {
+    const elapsed = new Date().getTime() - startedAt;
+    throw new Error(
+      'SERP Package作成に失敗しました。\n' +
+      '停止工程: ' + stage + '\n' +
+      '経過時間: ' + (elapsed / 1000).toFixed(1) + '秒\n' +
+      '詳細: ' + (e && e.message ? e.message : e)
     );
-    if (r !== ui.Button.YES) return;
-    sbosShowSiteSettings();
-    siteName = sbosGetSetting_('site_name');
-    siteUrl = sbosGetSetting_('site_url');
-    if (!siteName || !siteUrl) return;
   }
-
-  const ensuredOutput = sbosEnsureOutputFolderForWorkflow_();
-  if (!ensuredOutput.configured) {
-    if (suppressDialog) throw new Error('保存先フォルダーが未設定です。SERP精査画面から保存先を設定してください。');
-    sbosShowDriveFolderPicker_('serp_workflow');
-    return;
-  }
-  const folderId = ensuredOutput.id;
-  const folderName = ensuredOutput.name;
-
-  const values = sh.getRange(2,1,sh.getLastRow()-1,18).getDisplayValues();
-  const candidates = values.filter(r => sbosStatusCode_(r[12]) === 'PENDING' || r[12] === 'REQUESTED').map(r => ({
-    rank: Number(r[17]) || 0,
-    main_keyword: r[2],
-    words: Number(r[3]) || 0,
-    pre_score: Number(r[4]) || 0,
-    search_intent: r[7],
-    source: r[9],
-    intent_key: r[11],
-    source_metrics: r[8] || ''
-  }));
-  if (!candidates.length) {
-    ui.alert('Package対象がありません', 'PENDINGのSERP候補がありません。', ui.ButtonSet.OK);
-    return;
-  }
-
-  const requestId = 'SBOS-SERP-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyyMMdd-HHmmss');
-  const inputFile = sbosGetState_('input_file_name') || '未選択';
-  const payload = {
-    format: 'SIMS_BOS_SERP_REVIEW_REQUEST_V1',
-    contract_version: '1.0',
-    product: SBOS_PRODUCT_NAME,
-    product_version: SBOS_VERSION,
-    request_id: requestId,
-    generated_at: sbosNow_(),
-    mode: isNewSite ? SBOS_MODE.NEW_SITE : SBOS_MODE.EXISTING_SITE,
-    site: {name: siteName, url: siteUrl},
-    input_file: inputFile,
-    candidate_count: candidates.length,
-    evaluation_policy: isNewSite ? {
-      purpose: '対象サイトを前提にせず、新規サイト立ち上げ向けのBlue Oceanキーワードを実SERPで精査する',
-      do_not_assume_volume_zero_means_no_demand: true,
-      require_web_verification: true,
-      skip_cannibalization_check: true,
-      disable_try_rescue: true,
-      final_green_in_serp_stage: true,
-      new_site_dimensions: ['entry_ease','demand','serp_gap','expansion','cluster_potential','continuity','risk'],
-      green_gate: 'blue_ocean_score>=80 AND new_site_fit_score>=80 AND cluster_potential>=70 AND risk<=60',
-      yellow_gate: 'blue_ocean_score>=65 AND new_site_fit_score>=65 AND risk<=75',
-      keyword_planner_metrics_policy: '月間検索数・3か月推移・前年比は需要Signalとして利用する。Google Ads競合性はSEO難易度と同一視せず、広告主需要の補助情報としてのみ扱う'
-    } : {
-      purpose: '個人ブログが上位表示を狙える3語・4語ロングテールのBlue Ocean候補を実SERPで精査する',
-      do_not_assume_volume_zero_means_no_demand: true,
-      require_web_verification: true,
-      do_not_finalize_article_green_before_cannibalization_check: true,
-      keyword_planner_metrics_policy: '月間検索数・3か月推移・前年比は需要Signalとして利用する。Google Ads競合性はSEO難易度と同一視せず、広告主需要の補助情報としてのみ扱う'
-    },
-    candidates: candidates
-  };
-
-  const md = sbosBuildSerpReviewRequestMarkdown_(payload);
-  const json = JSON.stringify(payload, null, 2);
-  const readme = sbosBuildSerpPackageReadme_(payload);
-  const blobs = [
-    Utilities.newBlob(readme, 'text/markdown', 'README-FIRST.md'),
-    Utilities.newBlob(md, 'text/markdown', 'SERP-REVIEW-REQUEST.md'),
-    Utilities.newBlob(json, 'application/json', 'SERP_REVIEW_REQUEST_V1.json')
-  ];
-  const safeSite = sbosSafeFilename_(isNewSite ? 'New-Site' : (siteName || 'Unassigned-Site'));
-  const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyyMMdd-HHmmss');
-  const zipName = 'SIMS-BOS-' + safeSite + '-Claude-SERP-Review-' + stamp + '.zip';
-  const zipBlob = Utilities.zip(blobs, zipName);
-  const outFolder = sbosGetOutputFolder_();
-  const folder = outFolder.folder;
-  const file = folder.createFile(zipBlob);
-
-  for (let i = 0; i < values.length; i++) {
-    if (sbosStatusCode_(values[i][12]) === 'PENDING') sh.getRange(i + 2, 13).setValue('REQUESTED');
-  }
-  sbosSetState_('serp_request_id', requestId);
-  sbosSetState_('serp_package_file_id', file.getId());
-  sbosSetState_('serp_package_file_name', zipName);
-  sbosSetHomeStatus_('SERP精査依頼Package作成済み');
-
-  if (!suppressDialog) {
-    sbosShowWorkflowResult_(
-      'SERP精査依頼Packageを作成しました',
-      '<b>候補:</b> ' + candidates.length + '件<br>' +
-      '<b>ファイル名:</b> ' + sbosEscapeHtml_(zipName) + '<br>' +
-      '<b>保存先:</b> ' + sbosEscapeHtml_(folderName || folder.getName() || 'マイドライブ') + '<br><br>' +
-      'このZIPをClaude.aiへアップロードしてSERP精査を依頼してください。',
-      '',
-      ''
-    );
-  }
-  return {
-    count:candidates.length,
-    fileName:zipName,
-    folderName:(folderName || folder.getName() || 'マイドライブ'),
-    requestId:requestId
-  };
 }
 
 function sbosCreateSerpReviewPackageForWorkflow() {
@@ -1869,13 +1919,13 @@ function sbosShowSerpWorkflowDialog() {
     '<!doctype html><html><head><base target="_top"><style>' +
     'body{font-family:Arial,sans-serif;margin:0;color:#202124}.w{padding:20px}.t{font-size:20px;font-weight:700}.g{background:#e8f0fe;padding:11px;border-radius:8px;margin:10px 0;line-height:1.6}.b{border:1px solid #dadce0;border-radius:8px;padding:13px;margin-top:12px}.l{font-weight:700;margin-bottom:7px}' +
     'textarea{width:100%;height:235px;box-sizing:border-box;border:1px solid #dadce0;border-radius:7px;padding:10px;font-family:monospace;font-size:12px}.st{background:#f8fafd;border-radius:6px;padding:9px;margin-top:8px;font-size:12px;white-space:pre-wrap;line-height:1.5}.a{display:flex;justify-content:flex-end;gap:8px;margin-top:9px}' +
-    'button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:white}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}button:disabled{opacity:.7}' +
-    '</style></head><body><div class="w"><div class="t">4. SERP精査</div>' +
+    'button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:white}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite;flex:0 0 auto}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}button:disabled{opacity:.75}.ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.90);z-index:9999;align-items:center;justify-content:center}.ov.on{display:flex}.ovbox{text-align:center;font-weight:700;font-size:16px;color:#174ea6}.bigsp{width:46px;height:46px;border:5px solid #d2e3fc;border-top-color:#1a73e8;border-radius:50%;animation:r .75s linear infinite;margin:0 auto 16px}.ovsub{font-size:12px;font-weight:400;color:#5f6368;margin-top:8px}' +
+    '</style></head><body><div id="pkgOverlay" class="ov"><div class="ovbox"><div class="bigsp"></div><div>Packageを作成しています…</div><div class="ovsub">候補を確認してZIPを準備しています。しばらくお待ちください。</div></div></div><div class="w"><div class="t">4. SERP精査</div>' +
     '<div class="g">' + (isNewSite ? 'モード: <b>新規サイト用キーワード探索</b><br>カニバリ判定: <b>実施しない</b><br>' : '対象サイト: <b>' + sbosEscapeHtml_(siteName) + '</b><br>') + 'SERP精査待ち: <b>' + pending + '件</b><br>Package作成から回答登録まで、この画面で続けて処理できます。</div>' +
     '<div class="b"><div class="l">① SERP精査Packageを作成</div><div id="pkg" class="st">未作成</div><div class="a"><button id="serpPackageBtn" class="p" onclick="pkg(this)"><span class="sp"></span><span class="tx">Packageを作成</span></button></div></div>' +
     '<div class="b"><div class="l">② Claude回答全文を貼り付け</div><textarea id="ans" placeholder="Claude回答全文をここへ貼り付け"></textarea><div id="rst" class="st">回答待ち</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="nextCandidates" class="p" style="display:none" onclick="goCandidates(this)"><span class="sp"></span><span class="tx">7. 候補・進捗を確認</span></button><button id="nextCannibal" class="p" style="display:none" onclick="goCannibal(this)"><span class="sp"></span><span class="tx">5. カニバリ精査へ</span></button><button id="regSerp" class="p" onclick="reg(this)"><span class="sp"></span><span class="tx">回答を登録</span></button></div></div>' +
     '<script>function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}' +
-    'function pkg(b){w(b,true,"処理中…");document.getElementById("pkg").textContent="Packageを作成しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("pkg").textContent="作成完了\\nファイル: "+r.fileName+"\\n保存先: "+r.folderName+"\\n候補: "+r.count+"件\\n\\nこのZIPをClaude.aiへアップロードしてください。";}).withFailureHandler(e=>{w(b,false);document.getElementById("pkg").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosCreateSerpReviewPackageForWorkflow()}' +
+    'function pkg(b){const ov=document.getElementById("pkgOverlay");w(b,true,"Package作成中…");document.getElementById("pkg").textContent="Packageを作成しています…";ov.classList.add("on");requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>{google.script.run.withSuccessHandler(r=>{ov.classList.remove("on");document.getElementById("pkg").textContent="作成完了\\nファイル: "+r.fileName+"\\n保存先: "+r.folderName+"\\n候補: "+r.count+"件\\n処理時間: "+((r.elapsedMs||0)/1000).toFixed(1)+"秒\\n\\nこのZIPをClaude.aiへアップロードしてください。";b.style.display="none";}).withFailureHandler(e=>{ov.classList.remove("on");w(b,false);document.getElementById("pkg").textContent="エラー\\n"+(e&&e.message?e.message:e)}).sbosCreateSerpReviewPackageForWorkflow();},80)))}' +
     'const newSiteMode=' + JSON.stringify(isNewSite) + ';function reg(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("rst").textContent="Claude回答全文を貼り付けてください。";return;}w(b,true,"処理中…");document.getElementById("rst").textContent="回答を検証・登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("rst").textContent="登録完了\\n反映: "+r.applied+"件\\nGREEN: "+r.green+" / YELLOW: "+r.yellow+" / BLOCK: "+r.block+(r.newSiteMode?"\\n新規サイト適性評価を反映済み":"");document.getElementById("regSerp").style.display="none";if(newSiteMode){document.getElementById("nextCandidates").style.display="inline-flex";}else{const n=document.getElementById("nextCannibal");if(r.green>0||r.yellow>0)n.style.display="inline-flex";else document.getElementById("nextCandidates").style.display="inline-flex";}}).withFailureHandler(e=>{w(b,false);document.getElementById("rst").textContent="エラー: "+(e&&e.message?e.message:e)+(newSiteMode?"\n\n新規サイト探索では new_site_fit_score / new_site_dimensions / new_site_assessment を含む完全JSONが必要です。":"")}).sbosImportSerpReviewText(t)}' +
     'function goCannibal(b){w(b,true,"処理中…");google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(e=>{w(b,false);document.getElementById("rst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosShowCannibalEvidencePicker()}' +'function goCandidates(b){w(b,true,"処理中…");google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(e=>{w(b,false);document.getElementById("rst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosOpenCandidates()}' +
     '</script></div></body></html>'

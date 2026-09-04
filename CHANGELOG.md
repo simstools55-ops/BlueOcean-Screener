@@ -1,3 +1,8 @@
+## v0.13.2
+- Optimized SERP Package creation.
+- Added stage diagnostics, elapsed-time reporting, batch status updates and visible processing overlay.
+- No scoring/decision changes.
+
 ## v0.13.1
 - Improved Claude response JSON extraction and diagnostics.
 - Added explicit NEW_SITE required-field validation.
