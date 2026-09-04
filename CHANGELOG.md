@@ -1,3 +1,12 @@
+## v0.12.8
+- Freeze Candidate after v0.12.1-v0.12.7 operational-test accumulation.
+- Unified all user-facing workflow numbering to the current 7-step menu.
+- Corrected legacy Step 8/10/12 labels and cannibal Step 6 label.
+- Unified user-facing SBM wording to SIMS Manager.
+- Unified target-blog wording to target-site wording.
+- No change to screening, SERP, cannibal, TRY rescue, Keyword Planner, or aCreator decision logic.
+- Rebuilt current distribution.
+
 ## v0.12.7-dev
 - ダイアログの処理完了後、完了済みの実行ボタンを非表示化。
 - カニバリ回答登録後に「7. 候補・進捗を確認」を表示。

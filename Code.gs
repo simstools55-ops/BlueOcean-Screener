@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.12.7
+ * Blue Ocean Screener v0.12.8
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.12.7
+ * Blue Ocean Screener v0.12.8
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.12.7';
+const SBOS_VERSION = '0.12.8';
 
 function onOpen() {
   // v0.9.9: 起動時は重い再構築を行わず、メニューと版数表示だけを更新する。
@@ -250,7 +250,7 @@ function sbosShowSiteSettings() {
       (currentUrl ? ' — ' + sbosEscapeHtml_(currentUrl) : '') + '</div>' +
     '<div class="box"><h3>保存済みサイトを再開</h3>' +
       (sessions.length
-        ? '<label>ブログ</label><select id="saved">' + options + '</select>' +
+        ? '<label>サイト</label><select id="saved">' + options + '</select>' +
           '<div class="subactions"><button id="openSavedBtn" class="primary" onclick="openSaved(this)"><span class="btnspin"></span><span class="btnlabel">このサイトを開く</span></button></div>'
         : '<div style="font-size:13px;color:#5f6368">保存済みサイトはまだありません。</div>') +
     '</div>' +
@@ -293,7 +293,7 @@ function sbosShowBlogSwitchResult_(result) {
   sbosShowWorkflowResult_(
     title,
     body,
-    isNew ? '2. キーワードファイルを読み込む' : '8. 候補を確認する',
+    isNew ? '2. キーワードを読み込む' : '7. 候補・進捗を確認',
     isNew ? 'sbosShowDrivePicker' : 'sbosOpenCandidates'
   );
 }
@@ -764,7 +764,7 @@ function sbosShowDrivePicker() {
   template.fileExtensions = '.csv,.tsv';
   template.returnAction = '';
   const html = template.evaluate().setWidth(800).setHeight(650);
-  SpreadsheetApp.getUi().showModalDialog(html, '2. キーワードファイルを読み込む');
+  SpreadsheetApp.getUi().showModalDialog(html, '2. キーワードを読み込む');
 }
 
 function sbosShowDriveFolderPicker_(returnAction) {
@@ -821,7 +821,7 @@ function sbosShowCannibalEvidencePicker() {
   template.pickerMode = 'cannibal_evidence';
   template.startFolderId = sbosGetSetting_('output_folder_id') || '';
   const html = template.evaluate().setWidth(800).setHeight(590);
-  SpreadsheetApp.getUi().showModalDialog(html, '6. カニバリ精査Package用Evidenceを選ぶ');
+  SpreadsheetApp.getUi().showModalDialog(html, '5. カニバリ精査Package用Evidenceを選ぶ');
 }
 
 
@@ -1253,7 +1253,7 @@ function sbosShowScreeningResult_(meta) {
     'Step 2で読み込んだキーワードから、ラッコキーワードへ再投入しやすい種キーワードを抽出しました。<br>' +
     '<div style="margin-top:8px;background:#fff;border:1px solid #dadce0;border-radius:6px;padding:10px;line-height:1.8">' +
     seeds.map(x => sbosEscapeHtml_(x)).join('<br>') + '</div><br>' +
-    '必要な語をラッコキーワードで調べ、新しいCSVを取得して「2. キーワードファイルを読み込む」から再探索してください。' : '';
+    '必要な語をラッコキーワードで調べ、新しいCSVを取得して「2. キーワードを読み込む」から再探索してください。' : '';
   sbosSetHomeStatus_('今回の探索候補なし');
   sbosShowWorkflowResult_(
     '今回の探索は終了です',
@@ -1294,7 +1294,7 @@ function sbosSuggestRakkoRescanSeeds_(limit) {
 function sbosStartScreeningFromDialog() {
   sbosEnsureSheets_();
   const sh = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.KEYWORDS);
-  if (sh.getLastRow() < 2) throw new Error('先に「2. キーワードファイルを読み込む」を実行してください。');
+  if (sh.getLastRow() < 2) throw new Error('先に「2. キーワードを読み込む」を実行してください。');
   sbosSetState_('status', SBOS_STATUS.SCREENING_RUNNING);
   return sbosRunScreening_(true);
 }
@@ -1569,7 +1569,7 @@ function sbosCreateSerpReviewPackage(options) {
   const ui = SpreadsheetApp.getUi();
   const sh = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   if (!sh || sh.getLastRow() < 2) {
-    ui.alert('SERP精査対象がありません', '先に「3. ブルーオーシャン候補を探索する」を実行してください。', ui.ButtonSet.OK);
+    ui.alert('SERP精査対象がありません', '先に「3. ブルーオーシャン候補を探す」を実行してください。', ui.ButtonSet.OK);
     return;
   }
 
@@ -1578,7 +1578,7 @@ function sbosCreateSerpReviewPackage(options) {
   if (!siteName || !siteUrl) {
     const r = ui.alert(
       '対象サイトが未設定です',
-      'SERP精査ではブログとの適合性も評価します。今ここで対象サイトを設定しますか？',
+      'SERP精査では対象サイトとの適合性も評価します。今ここで対象サイトを設定しますか？',
       ui.ButtonSet.YES_NO
     );
     if (r !== ui.Button.YES) return;
@@ -1873,10 +1873,10 @@ function sbosExtractContractJsonFromText_(rawText, expectedFormat) {
 
 function sbosShowResultPasteDialog_(kind) {
   const isSerp = kind === 'serp';
-  const title = isSerp ? '5. SERP精査結果を貼り付け・登録する' : '7. カニバリ精査結果を貼り付け・登録する';
+  const title = isSerp ? '4. SERP精査結果を貼り付け・登録する' : '5. カニバリ精査結果を貼り付け・登録する';
   const serverFn = isSerp ? 'sbosImportSerpReviewText' : 'sbosImportCannibalReviewText';
   const nextFn = isSerp ? 'sbosShowCannibalEvidencePicker' : 'sbosOpenCandidates';
-  const nextLabel = isSerp ? '6. カニバリPackageへ' : '8. 候補を確認・選択';
+  const nextLabel = isSerp ? '5. カニバリ精査へ' : '7. 候補・進捗を確認';
   const guide = isSerp
     ? 'ClaudeのSERP精査回答を、説明文を含めて全文そのまま貼り付けてください。JSON部分だけを抜き出す必要はありません。'
     : 'Claudeのカニバリ精査回答を、説明文を含めて全文そのまま貼り付けてください。JSON部分だけを抜き出す必要はありません。';
@@ -2567,8 +2567,8 @@ function sbosQueueSelectedCreatorCases() {
   sbosSaveCurrentBlogSession_();
   sbosShowWorkflowResult_(
     'aCreator依頼待ちへ登録しました',
-    '<b>登録:</b> '+selected.length+'件<br><br>案件は保存されています。今日すべて処理する必要はありません。次回はCandidatesで「依頼待ち」の案件をチェックし、「10. 選択したaCreator依頼文を表示する」から続けられます。',
-    '8. 候補一覧へ',
+    '<b>登録:</b> '+selected.length+'件<br><br>案件は保存されています。今日すべて処理する必要はありません。次回はCandidatesで「依頼待ち」の案件をチェックし、「6. GREEN / TRY候補をaCreatorで処理」から続けられます。',
+    '7. 候補・進捗を確認',
     'sbosOpenCandidates'
   );
 }
@@ -2595,7 +2595,7 @@ function sbosShowSelectedCreatorReferrals() {
   const html = HtmlService.createHtmlOutput(
     '<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.wrap{padding:18px}textarea{width:100%;height:390px;box-sizing:border-box;padding:10px;border:1px solid #dadce0;border-radius:6px;font-size:12px;line-height:1.45}.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600}.p{background:#1a73e8;color:#fff}.s{background:#f1f3f4}</style></head><body><div class="wrap"><h2>aCreator依頼文 '+selected.length+'件</h2><p>各CASEは独立案件です。必要なCASEだけaCreatorで処理しても構いません。</p><textarea id="t">'+sbosEscapeHtml_(text)+'</textarea><div class="foot"><button class="p" onclick="copy()">全文をコピー</button><button class="p" onclick="done()">選択案件をaCreator処置済みにする</button><button class="s" onclick="google.script.host.close()">閉じる</button></div></div><script>async function copy(){const t=document.getElementById("t");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}}function done(){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(e=>alert(e.message||e)).sbosMarkSelectedCreatorCasesDone();}</script></body></html>'
   ).setWidth(820).setHeight(620);
-  SpreadsheetApp.getUi().showModalDialog(html,'10. aCreator依頼文を表示する');
+  SpreadsheetApp.getUi().showModalDialog(html,'6. aCreator依頼文を表示する');
 }
 
 function sbosMarkSelectedCreatorCasesDoneFromMenu() {
@@ -2610,7 +2610,7 @@ function sbosMarkSelectedCreatorCasesDoneFromMenu() {
   sbosShowWorkflowResult_(
     'aCreator処置済みとして記録しました',
     '<b>処置済み:</b> ' + r.done + '件<br><br>HomeのaCreator依頼キューから減算し、aCreator処置済みへ反映しました。',
-    '8. 候補一覧へ',
+    '7. 候補・進捗を確認',
     'sbosOpenCandidates'
   );
   return r;
@@ -2708,7 +2708,7 @@ function sbosRegisterSbmResultFromCreatorDialog(keyword,articleId,publicUrl) {
   if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('SIMS Manager登録はGREEN / TRY候補のみ対象です。');
   const cs=String(h.values[10]||'');
   if(cs!=='作成済み'&&cs!=='SIMS Manager登録済み')throw new Error('先にaCreator回答を登録してください。');
-  const aid=String(articleId||'').trim(); if(!aid)throw new Error('SBM Article IDを入力してください。');
+  const aid=String(articleId||'').trim(); if(!aid)throw new Error('SIMS Manager Article IDを入力してください。');
   const url=String(publicUrl||'').trim(), sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   sh.getRange(h.row,11).setValue('SIMS Manager登録済み'); sh.getRange(h.row,14).setValue(aid); sh.getRange(h.row,15).setValue(url); sh.getRange(h.row,16).setValue('MONITORING'); sh.getRange(h.row,17).setValue(sbosNow_()); sh.getRange(h.row,1).setValue(false);
   sbosSetHomeStatus_('SIMS Manager登録済み: '+aid); sbosApplyCandidateFormatting_(); sbosSaveCurrentBlogSession_();
@@ -2789,12 +2789,12 @@ function sbosRegisterSbmArticleResult() {
   }
 
   const ui = SpreadsheetApp.getUi();
-  const aid = ui.prompt('12. SIMS Manager登録結果を記録する', 'SBMで発行されたArticle ID（例: A900001）を入力してください。', ui.ButtonSet.OK_CANCEL);
+  const aid = ui.prompt('6. SIMS Manager登録結果を記録する', 'SIMS Managerで発行されたArticle ID（例: A900001）を入力してください。', ui.ButtonSet.OK_CANCEL);
   if (aid.getSelectedButton() !== ui.Button.OK) return;
   const articleId = aid.getResponseText().trim();
   if (!articleId) return;
 
-  const urlr = ui.prompt('12. SIMS Manager登録結果を記録する', '公開URLを入力してください。まだ未確定なら空欄のままOKを押してください。', ui.ButtonSet.OK_CANCEL);
+  const urlr = ui.prompt('6. SIMS Manager登録結果を記録する', '公開URLを入力してください。まだ未確定なら空欄のままOKを押してください。', ui.ButtonSet.OK_CANCEL);
   if (urlr.getSelectedButton() !== ui.Button.OK) return;
   const url = urlr.getResponseText().trim();
 
@@ -2815,8 +2815,8 @@ function sbosRegisterSbmArticleResult() {
     '<b>Article ID:</b> ' + sbosEscapeHtml_(articleId) + '<br>' +
     '<b>BOS記録:</b> SIMS Manager登録済み<br>' +
     (url ? '<b>公開URL:</b> ' + sbosEscapeHtml_(url) + '<br>' : '') +
-    '<br>Homeとブログ切替ダイアログの進捗も更新しました。',
-    '8. 候補一覧を確認',
+    '<br>Homeとサイト切替ダイアログの進捗も更新しました。',
+    '7. 候補・進捗を確認',
     'sbosOpenCandidates'
   );
 }
@@ -2995,7 +2995,7 @@ function sbosEnsureLightweightHome_(force) {
 
     const rows = [
       [SBOS_PRODUCT_NAME,'','','Version '+SBOS_VERSION,'','','','','',''],
-      ['対象ブログ','','','URL','','','','','',''],
+      ['対象サイト','','','URL','','','','','',''],
       ['入力ファイル','','','現在の状態','','','','','',''],
       ['キーワード探索','','','','','','','','',''],
       ['総キーワード',0,'3語候補',0,'既存4語',0,'生成4語',0,'',''],
@@ -3006,7 +3006,7 @@ function sbosEnsureLightweightHome_(force) {
       ['GREEN / TRY案件の進捗','','','','','','','','',''],
       ['未依頼',0,'aCreator依頼キュー',0,'aCreator処置済み',0,'SIMS Manager登録済み',0,'',''],
       ['標準フロー','','','','','','','','',''],
-      ['1 対象ブログ設定','2 キーワード読込','3 候補探索','4 SERP精査','5 カニバリ精査','6 aCreator処理','7 候補・進捗確認','','',''],
+      ['1 対象サイト設定','2 キーワード読込','3 候補探索','4 SERP精査','5 カニバリ精査','6 aCreator処理','7 候補・進捗確認','','',''],
       ['','','','','','','','','',''],
       ['','','','','','','','','',''],
       ['色の見方','','','','','','','','',''],
@@ -3014,7 +3014,7 @@ function sbosEnsureLightweightHome_(force) {
       ['','','','','','','','','',''],
       ['メモ','','','','','','','','',''],
       ['・各ステップの詳細は上部メニューから実行してください。','','','','','','','','',''],
-      ['・ブログ切替時は Keywords・Candidates・SERP結果・aCreator/SIMS Manager進捗を自動保存し、再開時に復元します。','','','','','','','','',''],
+      ['・サイト切替時は Keywords・Candidates・SERP結果・aCreator/SIMS Manager進捗を自動保存し、再開時に復元します。','','','','','','','','',''],
       ['・TRYはGREENではありません。カニバリ確認済みでも、需要・SERP競争等の不確実性を理解した上で利用者判断で試す候補です。','','','','','','','','','']
     ];
     sh.getRange(1,1,rows.length,10).setValues(rows);

@@ -1,4 +1,4 @@
-<!-- SIMS BOS v0.10.2 -->
+<!-- SIMS Blue Ocean Screener v0.12.7 -->
 <!doctype html>
 <html>
 <head>
@@ -68,6 +68,7 @@ const currentSiteUrl='<?!= currentSiteUrl || "" ?>';
 const currentSiteKey='<?!= currentSiteKey || "" ?>';
 const filePrefix='<?!= filePrefix || "" ?>';
 const fileExtensions='<?!= fileExtensions || "" ?>';
+const returnAction='<?!= returnAction || "" ?>';
 let folderId='', parentId='', folderName='マイドライブ', selectedFile=null;
 
 const MODE={
@@ -136,14 +137,26 @@ function registerCannibalAnswer(btn){
   const t=document.getElementById('cannibalAnswer').value;
   if(!t.trim()){document.getElementById('cannibalAnswerStatus').textContent='Claude回答全文を貼り付けてください。';return;}
   buttonWork(btn,true,'処理中…');document.getElementById('cannibalAnswerStatus').textContent='回答を検証・登録しています…';
-  google.script.run.withSuccessHandler(r=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='登録完了\n反映: '+r.applied+'件\nGREEN: '+r.green+' / YELLOW: '+r.yellow+' / BLOCK: '+r.block+'\n\n次はCandidatesでGREEN候補を1件選び「6. GREEN候補をCreator処理」へ進んでください。';}).withFailureHandler(e=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='エラー: '+(e&&e.message?e.message:e);}).sbosImportCannibalReviewText(t);
+  google.script.run.withSuccessHandler(r=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='登録完了\n反映: '+r.applied+'件\nGREEN: '+r.green+' / YELLOW: '+r.yellow+' / BLOCK: '+r.block+'\n\n次は候補一覧でGREEN / TRY候補を1件選び、aCreator処理へ進んでください。';document.getElementById('cannibalRegisterBtn').style.display='none';const n=document.getElementById('nextBtn');n.textContent='7. 候補・進捗を確認';n.style.display='inline-block';n.onclick=()=>runNext('candidates');}).withFailureHandler(e=>{buttonWork(btn,false);document.getElementById('cannibalAnswerStatus').textContent='エラー: '+(e&&e.message?e.message:e);}).sbosImportCannibalReviewText(t);
 }
 function runNext(action){
   if(!action)return;
   if(action==='close'){google.script.host.close();return;}
   setBusy(true,'次の処理へ進んでいます…');
   if(action==='screening'){
-    google.script.run.withSuccessHandler(meta=>showResult('一次選抜・4語深掘り完了','SERP精査対象: '+meta.serpCount+'件\n新規4語深掘り候補: '+meta.generated4+'件\n\nGENERATED_4WORDは需要未確認です。SERP精査で確認するまでGREENにはしません。','4. Claude SERP精査へ','serp_workflow')).withFailureHandler(showError).sbosStartScreeningFromDialog(); return;
+    google.script.run.withSuccessHandler(meta=>{
+      const n=Number(meta&&meta.serpCount||0);
+      if(n<=0 || (meta&&meta.noCandidates)){
+        const seeds=(meta&&Array.isArray(meta.rescanSeeds)?meta.rescanSeeds:[]);
+        let text='SERP精査へ進める候補: 0件\n\n今回の条件では有望候補が見つかりませんでした。ここで今回の探索は終了です。';
+        if(seeds.length){
+          text+='\n\n次の再探索候補（ラッコキーワードへ入力）\n・'+seeds.join('\n・')+'\n\n必要な語をラッコキーワードで調べ、新しいCSVを取得して再探索してください。';
+        }
+        showResult('今回の探索は終了です',text,'','');
+        return;
+      }
+      showResult('一次選抜・4語深掘り完了','SERP精査対象: '+n+'件\n新規4語深掘り候補: '+Number(meta.generated4||0)+'件\n\nGENERATED_4WORDは需要未確認です。SERP精査で確認するまでGREENにはしません。','4. Claude SERP精査へ','serp_workflow');
+    }).withFailureHandler(showError).sbosStartScreeningFromDialog(); return;
   }
   if(action==='serp_package'){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(showError).sbosCreateSerpReviewPackage();return}
   if(action==='serp_workflow'){google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(showError).sbosShowSerpWorkflowDialog();return}
@@ -172,7 +185,13 @@ function confirmSelection(btn){
 }
 function selectCurrentFolder(btn){
   buttonWork(btn,true,'処理中…'); setBusy(true,'保存先フォルダーを設定しています…');
-  google.script.run.withSuccessHandler(m=>showResult('保存先を設定しました','保存先: '+m.folderName+'\n\n今後のSERP精査・カニバリ精査Packageはこのフォルダーへ保存します。','閉じる','close')).withFailureHandler(showError).sbosSetOutputFolder(folderId,folderName);
+  google.script.run.withSuccessHandler(m=>{
+    if(returnAction==='serp_workflow'){
+      showResult('保存先を設定しました','保存先: '+m.folderName+'\n\n設定は完了しました。続けてSERP精査Packageを作成できます。','SERP精査へ戻る','serp_workflow');
+      return;
+    }
+    showResult('保存先を設定しました','保存先: '+m.folderName+'\n\n今後のSERP精査・カニバリ精査Packageはこのフォルダーへ保存します。','閉じる','close');
+  }).withFailureHandler(showError).sbosSetOutputFolder(folderId,folderName);
 }
 function goRoot(){load('')} function goUp(){load(parentId||'')}
 function showError(e){

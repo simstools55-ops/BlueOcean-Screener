@@ -1,1 +1,1 @@
-fix: 完了済みボタンを消して次工程ボタンへ切り替える（Blue Ocean Screener v0.12.7）
+chore(release): freeze Blue Ocean Screener v0.12.8 UI and distribution
