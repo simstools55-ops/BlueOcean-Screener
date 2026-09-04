@@ -1,5 +1,5 @@
 /**
- * Blue Ocean Screener v0.13.0
+ * Blue Ocean Screener v0.13.1
  * Single-Code Apps Script distribution.
  * UI / operational completion baseline.
  *
@@ -12,11 +12,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.13.0
+ * Blue Ocean Screener v0.13.1
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.13.0';
+const SBOS_VERSION = '0.13.1';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -263,7 +263,40 @@ function sbosRefreshHomeSummary_() {
     home.getRange('H7').setValue(creatorUnqueued);
   }
   home.getRange('B9').setValue(green); home.getRange('D9').setValue(tryCount); home.getRange('F9').setValue(yellow); home.getRange('H9').setValue(block);
-  home.getRange('B11').setValue(creatorUnqueued); home.getRange('D11').setValue(creatorQueued); home.getRange('F11').setValue(creatorDone); home.getRange('H11').setValue(sbmLinked);
+  if (sbosIsNewSiteMode_()) {
+    home.getRange('A9').setValue('GREEN');
+    home.getRange('C9').setValue('YELLOW');
+    home.getRange('E9').setValue('BLOCK');
+    home.getRange('G9').setValue('評価済み');
+    home.getRange('D9').setValue(yellow);
+    home.getRange('F9').setValue(block);
+    home.getRange('H9').setValue(green + yellow + block);
+
+    home.getRange('A10').setValue('新規サイト探索の進捗');
+    home.getRange('A11').setValue('キーワード読込');
+    home.getRange('B11').setValue(total);
+    home.getRange('C11').setValue('SERP精査待ち');
+    home.getRange('D11').setValue(serpWait);
+    home.getRange('E11').setValue('最終GREEN');
+    home.getRange('F11').setValue(green);
+    home.getRange('G11').setValue('カニバリ');
+    home.getRange('H11').setValue('実施しない');
+
+    home.getRange('A12').setValue('新規サイト用フロー');
+    home.getRange('A13:H13').setValues([[
+      '1 新規サイト探索開始','2 キーワード読込','3 候補探索','4 SERP・適性精査','5 GREEN候補確認','','',''
+    ]]);
+    home.getRange('A16').setValue('判定の見方');
+    home.getRange('A17:H17').setValues([[
+      'GREEN：新規サイトの初期クラスター候補','','YELLOW：追加確認・保留','','BLOCK：新規サイトの核として弱い','','',''
+    ]]);
+    home.getRange('A19').setValue('新規サイト探索メモ');
+    home.getRange('A20').setValue('・対象サイト指定、カニバリ精査、TRY救済、aCreator処理はこのモードでは使用しません。');
+    home.getRange('A21').setValue('・GREENはBlue Ocean Score、新規サイト適性、クラスター形成力、リスクの品質ゲートで最終確定します。');
+    home.getRange('A22').setValue('・GREEN候補を、新規サイトのテーマ設計・初期記事クラスター作成に利用します。');
+  } else {
+    home.getRange('B11').setValue(creatorUnqueued); home.getRange('D11').setValue(creatorQueued); home.getRange('F11').setValue(creatorDone); home.getRange('H11').setValue(sbmLinked);
+  }
 }
 // ============================================================================
 // Menu
@@ -1843,7 +1876,7 @@ function sbosShowSerpWorkflowDialog() {
     '<div class="b"><div class="l">② Claude回答全文を貼り付け</div><textarea id="ans" placeholder="Claude回答全文をここへ貼り付け"></textarea><div id="rst" class="st">回答待ち</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="nextCandidates" class="p" style="display:none" onclick="goCandidates(this)"><span class="sp"></span><span class="tx">7. 候補・進捗を確認</span></button><button id="nextCannibal" class="p" style="display:none" onclick="goCannibal(this)"><span class="sp"></span><span class="tx">5. カニバリ精査へ</span></button><button id="regSerp" class="p" onclick="reg(this)"><span class="sp"></span><span class="tx">回答を登録</span></button></div></div>' +
     '<script>function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}' +
     'function pkg(b){w(b,true,"処理中…");document.getElementById("pkg").textContent="Packageを作成しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("pkg").textContent="作成完了\\nファイル: "+r.fileName+"\\n保存先: "+r.folderName+"\\n候補: "+r.count+"件\\n\\nこのZIPをClaude.aiへアップロードしてください。";}).withFailureHandler(e=>{w(b,false);document.getElementById("pkg").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosCreateSerpReviewPackageForWorkflow()}' +
-    'const newSiteMode=' + JSON.stringify(isNewSite) + ';function reg(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("rst").textContent="Claude回答全文を貼り付けてください。";return;}w(b,true,"処理中…");document.getElementById("rst").textContent="回答を検証・登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("rst").textContent="登録完了\\n反映: "+r.applied+"件\\nGREEN: "+r.green+" / YELLOW: "+r.yellow+" / BLOCK: "+r.block+(r.newSiteMode?"\\n新規サイト適性評価を反映済み":"");document.getElementById("regSerp").style.display="none";if(newSiteMode){document.getElementById("nextCandidates").style.display="inline-flex";}else{const n=document.getElementById("nextCannibal");if(r.green>0||r.yellow>0)n.style.display="inline-flex";else document.getElementById("nextCandidates").style.display="inline-flex";}}).withFailureHandler(e=>{w(b,false);document.getElementById("rst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosImportSerpReviewText(t)}' +
+    'const newSiteMode=' + JSON.stringify(isNewSite) + ';function reg(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("rst").textContent="Claude回答全文を貼り付けてください。";return;}w(b,true,"処理中…");document.getElementById("rst").textContent="回答を検証・登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("rst").textContent="登録完了\\n反映: "+r.applied+"件\\nGREEN: "+r.green+" / YELLOW: "+r.yellow+" / BLOCK: "+r.block+(r.newSiteMode?"\\n新規サイト適性評価を反映済み":"");document.getElementById("regSerp").style.display="none";if(newSiteMode){document.getElementById("nextCandidates").style.display="inline-flex";}else{const n=document.getElementById("nextCannibal");if(r.green>0||r.yellow>0)n.style.display="inline-flex";else document.getElementById("nextCandidates").style.display="inline-flex";}}).withFailureHandler(e=>{w(b,false);document.getElementById("rst").textContent="エラー: "+(e&&e.message?e.message:e)+(newSiteMode?"\n\n新規サイト探索では new_site_fit_score / new_site_dimensions / new_site_assessment を含む完全JSONが必要です。":"")}).sbosImportSerpReviewText(t)}' +
     'function goCannibal(b){w(b,true,"処理中…");google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(e=>{w(b,false);document.getElementById("rst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosShowCannibalEvidencePicker()}' +'function goCandidates(b){w(b,true,"処理中…");google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(e=>{w(b,false);document.getElementById("rst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosOpenCandidates()}' +
     '</script></div></body></html>'
   ).setWidth(760).setHeight(700);
@@ -2034,45 +2067,93 @@ function sbosSafeFilename_(s) {
 
 
 function sbosExtractContractJsonFromText_(rawText, expectedFormat) {
-  let text = String(rawText || '').replace(/^\uFEFF/, '').trim();
-  if (!text) throw new Error('Claudeの回答全文を貼り付けてください。');
+  const text = String(rawText || '').trim();
+  if (!text) throw new Error('Claude回答が空です。');
 
-  // Markdown fenceはあってもなくてもよい。回答全文から契約JSONを探索する。
-  text = text.replace(/```(?:json)?\s*/gi, '').replace(/```/g, '');
+  const candidates = [];
 
+  // 1) ```json ... ``` / ``` ... ``` code blocks
+  const fenceRe = /```(?:json)?\s*([\s\S]*?)```/gi;
+  let fm;
+  while ((fm = fenceRe.exec(text)) !== null) {
+    const s = String(fm[1] || '').trim();
+    if (s) candidates.push({source:'code_block', text:s});
+  }
+
+  // 2) Whole text when it is itself JSON-ish.
+  if (/^[\s\r\n]*[\{\[]/.test(text)) {
+    candidates.push({source:'whole_text', text:text});
+  }
+
+  // 3) Scan every balanced {...} object in the answer.
+  // This tolerates prose before/after JSON and Claude responses without code fences.
   const starts = [];
-  for (let i = 0; i < text.length; i++) if (text[i] === '{') starts.push(i);
-
-  for (let si = 0; si < starts.length; si++) {
-    const start = starts[si];
-    let depth = 0, inString = false, escaped = false;
-    for (let i = start; i < text.length; i++) {
-      const ch = text[i];
-      if (inString) {
-        if (escaped) escaped = false;
-        else if (ch === '\\') escaped = true;
-        else if (ch === '"') inString = false;
-        continue;
+  let inString = false, escape = false, depth = 0, start = -1;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+      } else if (ch === '\\') {
+        escape = true;
+      } else if (ch === '"') {
+        inString = false;
       }
-      if (ch === '"') { inString = true; continue; }
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) {
-          const candidate = text.slice(start, i + 1);
-          try {
-            const obj = JSON.parse(candidate);
-            if (obj && obj.format === expectedFormat) return obj;
-          } catch (e) {}
-          break;
-        }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === '}' && depth > 0) {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        starts.push(text.slice(start, i + 1));
+        start = -1;
       }
     }
   }
+  starts.forEach(s => candidates.push({source:'balanced_object', text:s}));
+
+  const parsed = [];
+  const parseErrors = [];
+  candidates.forEach(c => {
+    try {
+      const obj = JSON.parse(c.text);
+      parsed.push({source:c.source, obj:obj});
+    } catch(e) {
+      parseErrors.push(c.source + ': ' + (e && e.message ? e.message : e));
+    }
+  });
+
+  // Prefer the exact expected contract regardless of where it appeared.
+  for (let i = parsed.length - 1; i >= 0; i--) {
+    const obj = parsed[i].obj;
+    if (obj && typeof obj === 'object' && String(obj.format || '') === String(expectedFormat || '')) {
+      return obj;
+    }
+  }
+
+  // If JSON was found but the expected contract is absent, explain what was found.
+  if (parsed.length) {
+    const formats = parsed
+      .map(x => x.obj && typeof x.obj === 'object' ? String(x.obj.format || '') : '')
+      .filter(Boolean);
+    throw new Error(
+      expectedFormat + ' のJSONは見つかりませんでした。\n' +
+      (formats.length ? '検出したformat: ' + Array.from(new Set(formats)).join(', ') + '\n' : '') +
+      'Claude回答末尾に format="' + expectedFormat + '" を含む完全JSONを出力してください。'
+    );
+  }
+
+  // No valid JSON at all.
   throw new Error(
     expectedFormat + ' のJSONをClaude回答全文から見つけられませんでした。\n' +
-    'Claudeが「上のファイルに格納しました」などと回答し、JSON本体を別ファイルだけに出している場合は登録できません。\n' +
-    'Claudeへ「JSONファイルではなく、完全なJSON本体をこのチャット回答の末尾に ```json コードブロックで再掲してください」と依頼し、その回答全文を貼り付けてください。'
+    'JSONコードブロック、または回答本文中の完全なJSONオブジェクトを貼り付けてください。\n' +
+    (parseErrors.length ? '検出候補はありましたがJSONとして解析できませんでした。例: ' + parseErrors[0] : 'JSONオブジェクト自体を検出できませんでした。')
   );
 }
 
@@ -2115,12 +2196,48 @@ function sbosShowCannibalResultPasteDialog() {
 
 function sbosImportSerpReviewText(rawText) {
   const payload = sbosExtractContractJsonFromText_(rawText, 'SIMS_BOS_SERP_REVIEW_RESULT_V1');
+  if (sbosIsNewSiteMode_()) sbosValidateNewSiteSerpPayload_(payload);
   return sbosApplySerpReviewPayload_(payload, {
     sourceName: 'Claude回答全文貼り付け',
     sourceType: 'CLAUDE_PASTE'
   });
 }
 
+
+function sbosValidateNewSiteSerpPayload_(payload) {
+  if (!payload || !Array.isArray(payload.results) || !payload.results.length) {
+    throw new Error('新規サイト適性評価のresults[]がありません。');
+  }
+  const requiredDims = ['entry_ease','demand','serp_gap','expansion','cluster_potential','continuity','risk'];
+  const problems = [];
+  payload.results.forEach((r, idx) => {
+    const label = String(r.main_keyword || ('#' + (idx + 1)));
+    if (r.new_site_fit_score === undefined || r.new_site_fit_score === null || r.new_site_fit_score === '') {
+      problems.push(label + ': new_site_fit_score');
+    }
+    if (!r.new_site_dimensions || typeof r.new_site_dimensions !== 'object') {
+      problems.push(label + ': new_site_dimensions');
+    } else {
+      requiredDims.forEach(k => {
+        if (r.new_site_dimensions[k] === undefined || r.new_site_dimensions[k] === null || r.new_site_dimensions[k] === '') {
+          problems.push(label + ': new_site_dimensions.' + k);
+        }
+      });
+    }
+    if (r.new_site_assessment === undefined || r.new_site_assessment === null || String(r.new_site_assessment).trim() === '') {
+      problems.push(label + ': new_site_assessment');
+    }
+  });
+  if (problems.length) {
+    const shown = problems.slice(0, 12);
+    throw new Error(
+      '新規サイト適性評価の必須項目が不足しています。\n' +
+      shown.join('\n') +
+      (problems.length > shown.length ? '\nほか ' + (problems.length - shown.length) + '件' : '') +
+      '\n\nClaudeへ、Packageの返却JSON仕様どおり完全JSONを再出力するよう依頼してください。'
+    );
+  }
+}
 
 // ============================================================================
 // SERP Review Result Import
@@ -3256,6 +3373,23 @@ function sbosEnsureLightweightHome_(force) {
       ['・サイト切替時は Keywords・Candidates・SERP結果・aCreator/SIMS Manager進捗を自動保存し、再開時に復元します。','','','','','','','','',''],
       ['・TRYはGREENではありません。カニバリ確認済みでも、需要・SERP競争等の不確実性を理解した上で利用者判断で試す候補です。','','','','','','','','','']
     ];
+    if (sbosIsNewSiteMode_()) {
+      rows[1] = ['モード','','','対象サイト','','','','','',''];
+      rows[5] = ['現在の候補状況','','','','','','','','',''];
+      rows[6] = ['SERP精査待ち',0,'新規サイト適性評価',0,'最終GREEN',0,'評価済み',0,'',''];
+      rows[7] = ['最終判定','','','','','','','','',''];
+      rows[8] = ['GREEN',0,'YELLOW',0,'BLOCK',0,'評価済み',0,'',''];
+      rows[9] = ['新規サイト探索の進捗','','','','','','','','',''];
+      rows[10] = ['キーワード読込',0,'SERP精査待ち',0,'最終GREEN',0,'カニバリ','実施しない','',''];
+      rows[11] = ['新規サイト用フロー','','','','','','','','',''];
+      rows[12] = ['1 新規サイト探索開始','2 キーワード読込','3 候補探索','4 SERP・適性精査','5 GREEN候補確認','','','','',''];
+      rows[15] = ['判定の見方','','','','','','','','',''];
+      rows[16] = ['GREEN：新規サイトの初期クラスター候補','','YELLOW：追加確認・保留','','BLOCK：新規サイトの核として弱い','','','','',''];
+      rows[18] = ['新規サイト探索メモ','','','','','','','','',''];
+      rows[19] = ['・対象サイト指定、カニバリ精査、TRY救済、aCreator処理はこのモードでは使用しません。','','','','','','','','',''];
+      rows[20] = ['・GREENはBlue Ocean Score、新規サイト適性、クラスター形成力、リスクの品質ゲートで最終確定します。','','','','','','','','',''];
+      rows[21] = ['・GREEN候補を、新規サイトのテーマ設計・初期記事クラスター作成に利用します。','','','','','','','','',''];
+    }
     sh.getRange(1,1,rows.length,10).setValues(rows);
   }
 

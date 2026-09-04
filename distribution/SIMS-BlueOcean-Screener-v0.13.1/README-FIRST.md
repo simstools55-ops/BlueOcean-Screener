@@ -1,4 +1,13 @@
-# Blue Ocean Screener v0.13.0
+# Blue Ocean Screener v0.13.1
+
+## v0.13.1 — 新規サイト探索 実運用修正
+
+- Claude回答全文から、```jsonコードブロックだけでなく本文中の完全JSONオブジェクトも抽出可能にしました。
+- JSONが存在するがformatが違う場合、検出したformatを表示します。
+- 新規サイト探索では `new_site_fit_score`、7つの `new_site_dimensions`、`new_site_assessment` の不足項目を具体的に表示します。
+- 新規サイト探索モードのHomeを専用表示へ変更し、TRY、カニバリ待ち、aCreator依頼キュー、既存サイト用標準フローを表示しないようにしました。
+- 既存サイトモードの処理ロジックは変更していません。
+
 
 ## v0.13.0 — 新規サイト用キーワード探索モード
 

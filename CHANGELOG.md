@@ -1,3 +1,9 @@
+## v0.13.1
+- Improved Claude response JSON extraction and diagnostics.
+- Added explicit NEW_SITE required-field validation.
+- Added dedicated NEW_SITE Home layout without TRY/cannibal/aCreator artifacts.
+- Existing-site workflow unchanged.
+
 ## v0.13.0
 - Added dedicated NEW_SITE keyword discovery mode.
 - Added new-site suitability scoring and deterministic GREEN/YELLOW/BLOCK gates.
