@@ -1,4 +1,4 @@
-# SIMS Blue Ocean Screener v0.14.11
+# SIMS Blue Ocean Screener v0.14.12
 
 SIMS Blue Ocean Screener は、ロングテールキーワード候補を選別し、ClaudeによるSERP精査、必要に応じたカニバリ確認、新規記事候補の確定、aCreator向け依頼文作成までを支援する Google Spreadsheet + Apps Script 製品です。
 

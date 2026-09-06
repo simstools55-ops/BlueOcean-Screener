@@ -1,6 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.11
+ * Blue Ocean Screener v0.14.12
  * Single-Code Apps Script distribution.
+ * v0.14.12: suppress sheet redraw during SERP registration by separating Home value refresh from layout formatting and avoiding whole-candidate UI resets.
  * v0.14.11: accelerate SERP answer registration by batching history/pool I/O, avoiding duplicate pool sync, and saving only changed session snapshots.
  * v0.14.10: normalize checked_count from actual serp_evidence length so minor AI counting errors do not block valid reviews.
  * v0.14.9: fix SERP workflow client-side JavaScript escaping so the Claude ZIP button and dialog actions respond correctly.
@@ -23,11 +24,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.11
+ * Blue Ocean Screener v0.14.12
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.11';
+const SBOS_VERSION = '0.14.12';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -319,6 +320,31 @@ function sbosRefreshHomeSummary_() {
     home.getRange('B11').setValue(creatorUnqueued); home.getRange('D11').setValue(creatorQueued); home.getRange('F11').setValue(creatorDone); home.getRange('H11').setValue(sbmLinked);
   }
 }
+// v0.14.12: value-only Home refresh for high-frequency SERP registration.
+// Never rebuilds layout, widths, row heights, borders, fonts, wrap or other formatting.
+function sbosRefreshHomeSummaryFast_() {
+  const ss=SpreadsheetApp.getActive(),home=ss.getSheetByName(SBOS_SHEETS.HOME),kw=ss.getSheetByName(SBOS_SHEETS.KEYWORDS),cand=ss.getSheetByName(SBOS_SHEETS.CANDIDATES);
+  if(!home)return;
+  let total=0,two=0,three=0,existing4=0;
+  if(kw&&kw.getLastRow()>=2){const vals=kw.getRange(2,1,kw.getLastRow()-1,13).getDisplayValues();total=vals.length;vals.forEach(r=>{const wc=Number(r[5]);if(wc===2)two++;else if(wc===3)three++;else if(wc===4)existing4++;});}
+  let generated4=0,serpWait=0,cannibalWait=0,green=0,yellow=0,palePink=0,red=0,creatorUnqueued=0,creatorQueued=0,creatorDone=0,sbmLinked=0;
+  if(cand&&cand.getLastRow()>=2){cand.getRange(2,1,cand.getLastRow()-1,18).getDisplayValues().forEach(r=>{const st=sbosStatusCode_(r[1]),serp=sbosStatusCode_(r[12]),src=String(r[9]||''),creator=String(r[10]||''),articleId=String(r[13]||'');if(src==='GENERATED_4WORD')generated4++;if(st==='PENDING'||serp==='PENDING'||serp==='REQUESTED')serpWait++;if(st==='CANNIBAL_PENDING')cannibalWait++;if(['GREEN','YELLOW','PALE_PINK','TRY'].includes(st)){if(st==='GREEN')green++;else if(st==='YELLOW')yellow++;else if(st==='PALE_PINK')palePink++;if(articleId||creator==='SIMS Manager登録済み')sbmLinked++;else if(creator==='依頼待ち')creatorQueued++;else if(creator==='作成済み')creatorDone++;else creatorUnqueued++;}if(st==='RED')red++;});}
+  const isNew=sbosIsNewSiteMode_();
+  // Batch only value cells. Static labels/layout are maintained by sbosEnsureLightweightHome_().
+  home.getRange('B2').setValue(isNew?'新規サイト探索モード':(sbosGetSetting_('site_name')||'未設定'));
+  home.getRange('E2').setValue(isNew?'対象サイト指定なし':(sbosGetSetting_('site_url')||''));
+  home.getRange('B3').setValue(sbosGetState_('input_file_name')||'未選択');
+  home.getRange('E3').setValue(sbosGetState_('home_status_text')||'未実行');
+  home.getRange('B5:J5').setValues([[total,'2語',two,'3語',three,'4語',existing4,'生成4語',generated4]]);
+  home.getRange('B7').setValue(serpWait);
+  if(isNew){home.getRange('D7').setValue(green+yellow+palePink);home.getRange('H7').setValue(green+yellow+palePink);}else{home.getRange('D7').setValue(cannibalWait);home.getRange('H7').setValue(creatorUnqueued);}
+  home.getRange('B9:H9').setValues([[green,'YELLOW',yellow,'PALE PINK',palePink,'RED',red]]);
+  if(isNew){home.getRange('B11:H11').setValues([[total,'SERP精査待ち',serpWait,'有望候補',green+yellow+palePink,'カニバリ','実施しない']]);}
+  else{home.getRange('B11:H11').setValues([[creatorUnqueued,'aCreator依頼キュー',creatorQueued,'aCreator処置済み',creatorDone,'SIMS Manager登録済み',sbmLinked]]);}
+  const poolCount=sbosCandidatePoolCountForCurrentContext_();
+  if(!isNew)home.getRange('A22').setValue('・Candidate Pool（'+sbosCandidatePoolContextLabel_()+'）：'+poolCount+'件。別サイトの候補は表示・再評価対象に含めません。');
+}
+
 // ============================================================================
 // Menu
 // Source consolidated from: Menu.gs
@@ -1732,10 +1758,9 @@ function sbosApplyCandidateFormatting_() {
 // row-by-row full-row painting, filter recreation and a second whole-table sort/write.
 function sbosApplyCandidateFormattingFast_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
-  if (!sh || sh.getLastRow() < 2) { sbosRefreshHomeSummary_(); return; }
+  if (!sh || sh.getLastRow() < 2) return;
   const n = sh.getLastRow()-1;
-  sh.getRange(2,1,n,1).insertCheckboxes();
-  sh.getRange(2,3,n,1).setWrap(true);
+  // v0.14.12: checkboxes/wrap are structural UI and are not rebuilt on every SERP import.
   const vals = sh.getRange(2,1,n,14).getDisplayValues();
   const bgs = vals.map(r => {
     const st=sbosStatusCode_(r[1]), creator=String(r[10]||''), articleId=String(r[13]||'');
@@ -1749,8 +1774,8 @@ function sbosApplyCandidateFormattingFast_() {
     return ['#f1f3f4'];
   });
   sh.getRange(2,2,n,1).setBackgrounds(bgs);
-  sbosRefreshHomeSummary_();
 }
+
 function sbosCandidateSortPriority_(row) {
   const st = sbosStatusCode_(row[1]);
   const creator = String(row[10] || '');
@@ -2515,7 +2540,7 @@ function sbosApplySerpReviewPayload_(payload, source) {
   let progress=sbosGetSerpCycleProgress_(),shouldContinue=!progress.stopReached&&(progress.pending+progress.requested)>0,clustered=0;
   if((progress.pending+progress.requested)===0){clustered=sbosCollapseCandidateIntentDuplicates_();progress=sbosGetSerpCycleProgress_();shouldContinue=!progress.stopReached&&(progress.pending+progress.requested)>0;}
   sbosApplyCandidateFormattingFast_(); sbosSetState_('status',shouldContinue?SBOS_STATUS.SERP_RUNNING:SBOS_STATUS.SERP_REVIEW_IMPORTED); sbosSetState_('serp_result_source',source.sourceType||'UNKNOWN'); if(source.sourceId)sbosSetState_('serp_result_file_id',source.sourceId); sbosSetState_('serp_result_file_name',sourceName);
-  const summary='SERP精査 '+progress.completedCycles+'/'+progress.maxCycles+'（GREEN＋YELLOW '+progress.yellowPlusTotal+'/'+progress.target+' / PALE PINK '+progress.palePink+'）'+(progress.stopReason?' / '+progress.stopReason:''); sbosSetHomeStatus_(summary); sbosSyncCandidatePoolFast_(); sbosSaveSerpSessionFast_();
+  const summary='SERP精査 '+progress.completedCycles+'/'+progress.maxCycles+'（GREEN＋YELLOW '+progress.yellowPlusTotal+'/'+progress.target+' / PALE PINK '+progress.palePink+'）'+(progress.stopReason?' / '+progress.stopReason:''); sbosSetState_('home_status_text',summary); sbosSyncCandidatePoolFast_(); sbosRefreshHomeSummaryFast_(); sbosSaveSerpSessionFast_();
   return {applied:applied,green:counts.GREEN,yellow:counts.YELLOW,palePink:counts.PALE_PINK,red:counts.RED,block:counts.BLOCK,existingArticle:counts.EXISTING_ARTICLE,clustered:clustered,excluded:excluded,requestId:thisRequestId,newSiteMode:sbosIsNewSiteMode_(),completedCycles:progress.completedCycles,maxCycles:progress.maxCycles,yellowPlusTotal:progress.yellowPlusTotal,yellowPlusTarget:progress.target,palePinkTotal:progress.palePink,shouldContinue:shouldContinue,stopReason:progress.stopReason,pendingRemaining:progress.pending};
 }
 

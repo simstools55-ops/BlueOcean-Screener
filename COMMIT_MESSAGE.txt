@@ -1,1 +1,8 @@
-perf: accelerate BOS SERP answer registration for v0.14.11
+perf(bos): suppress sheet redraw during SERP result registration
+
+- separate Home value refresh from dashboard layout formatting
+- avoid rebuilding candidate checkboxes and wrap settings on SERP import
+- update Home status once after Candidate Pool synchronization
+- keep SERP judgment and evidence validation logic unchanged
+
+Version: 0.14.12

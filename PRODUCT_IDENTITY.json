@@ -1,7 +1,7 @@
 {
   "product_name": "SIMS Blue Ocean Screener",
   "product_short_name": "SIMS-BOS",
-  "version": "0.14.11",
+  "version": "0.14.12",
   "release_type": "Development / Operational Test",
   "standard_ai": "Claude",
   "platform": "Google Spreadsheet + Apps Script",
