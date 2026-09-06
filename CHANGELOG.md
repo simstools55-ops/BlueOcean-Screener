@@ -1,3 +1,12 @@
+## v0.14.4
+
+- Added 2-word keyword counts to the keyword-import completion dialog.
+- Expanded primary screening eligibility from 3/4-word to 2/3/4-word keywords.
+- Changed first-stage selection to rank candidates by Pre Score and send at most the top 30 to SERP review.
+- Removed RED and BLOCK results from operational Candidates and Candidate Pool after SERP review while preserving review/history archives.
+- Removed same-intent duplicate rows from the operational candidate list after a complete SERP review.
+- Kept aCreator referral at one selected candidate per operation.
+
 ## v0.14.3
 
 - Reordered the standard menu into the 1-7 operational flow and moved saved-candidate actions into an unnumbered submenu.

@@ -1,1 +1,1 @@
-BOS v0.14.3: single-case Creator flow and Candidate Pool cleanup
+BOS v0.14.4: top-30 2-4 word screening and keep only G/Y/P candidates
