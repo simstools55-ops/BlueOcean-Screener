@@ -1,8 +1,9 @@
-perf(bos): suppress sheet redraw during SERP result registration
+feat(bos): make aCreator to Manager workflow sequential
 
-- separate Home value refresh from dashboard layout formatting
-- avoid rebuilding candidate checkboxes and wrap settings on SERP import
-- update Home status once after Candidate Pool synchronization
-- keep SERP judgment and evidence validation logic unchanged
+- hide SIMS Manager registration until aCreator response is saved
+- prompt users to register the new article in SIMS Manager and obtain Article ID
+- reveal Manager result fields only after successful aCreator response registration
+- validate Article ID as A followed by six digits
+- keep public URL optional for unpublished articles
 
-Version: 0.14.12
+Version: 0.14.13

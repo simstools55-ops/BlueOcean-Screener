@@ -1,3 +1,9 @@
+## v0.14.13 - 2026-09-06
+- aCreator回答登録前はSIMS Manager登録結果欄を非表示にする順次開示UIへ変更。
+- aCreator回答登録後にSIMS Managerへ新記事登録し、Article ID取得を促す案内を表示。
+- Article IDを必須、公開URLを任意としてBOSへ登録結果を記録。
+- Article IDのA+6桁形式をクライアント・サーバー双方で検証。
+
 ## v0.14.12 - 2026-09-06
 - SERP回答登録時のHome全面書式再適用を廃止し、値のみ更新する軽量ルートを追加。
 - Candidatesのチェックボックス・折返し全件再設定をSERP登録ルートから削除。
