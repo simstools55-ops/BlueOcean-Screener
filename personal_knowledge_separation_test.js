@@ -1,7 +1,7 @@
 const fs=require('fs');
 const code=fs.readFileSync('Code.gs','utf8');
 function ok(c,m){if(!c){console.error('FAIL:',m);process.exitCode=1}else console.log('PASS:',m)}
-ok(code.includes("const SBOS_VERSION = '0.14.6';"),'v0.14.6 version');
+ok(code.includes("const SBOS_VERSION = '0.14.7';"),'v0.14.7 version');
 ok(code.includes('例：サンプルサイト'),'neutral site example');
 ok(code.includes('https://example.com/'),'neutral URL example');
 ok(code.includes('A900001'),'synthetic Article ID example');
@@ -11,7 +11,7 @@ ok(!code.includes('Anthropic API'),'no deprecated API wording restored');
 ok(!code.includes('AI Gateway'),'no discontinued AI Gateway wording restored');
 
 ok(code.includes('PALE_PINK'),'four-tier SERP status');
-ok(code.includes('estimated_reachable_rank'),'rank-based SERP contract');
+ok(code.includes('reachable_band'),'reachable-band SERP contract');
 ok(code.includes("CANDIDATE_POOL: 'Candidate Pool'"),'candidate pool enabled');
 
 ok(code.includes('MAX_SERP_QUEUE: 30'),'SERP first-stage queue capped at 30');
@@ -23,7 +23,7 @@ ok(code.includes('sbosCreateGeminiSerpReviewFileForWorkflow'),'Gemini SERP revie
 ok(code.includes('Gemini用ファイルを作成'),'Gemini SERP dialog button');
 
 ok(code.includes('SERP_BATCH_SIZE: 5'),'SERP batch size 5');
-ok(code.includes('SERP_CHECK_DEPTH: 20'),'SERP depth 20');
+ok(code.includes('SERP_CHECK_DEPTH: 8'),'SERP minimum verified evidence 8');
 ok(code.includes('SERP_MAX_CYCLES: 5'),'SERP max cycles 5');
 ok(code.includes('SERP_TARGET_YELLOW_PLUS: 10'),'SERP GREEN+YELLOW target 10');
-ok(code.includes('serp_top20'),'top-20 SERP contract');
+ok(code.includes('serp_evidence'),'verified SERP evidence contract');

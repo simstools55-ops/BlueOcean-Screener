@@ -1,3 +1,15 @@
+# Changelog
+
+## v0.14.7 - 2026-09-06
+- SERP精査を「厳密なGoogle 1〜20位取得」前提から、実在確認できた検索証拠ベースへ変更。
+- 1サイクル5候補は維持し、各候補は最低8件の実在確認済み結果を基準に評価。
+- AI返却値を `estimated_reachable_rank` から `reachable_band`（TOP10 / TOP20 / TOP30 / OUT）へ変更。
+- BOSが TOP10→GREEN、TOP20→YELLOW、TOP30→PALE PINK、OUT→RED を機械判定。
+- `checked_count` は実件数と `serp_evidence` 要素数の一致を必須化。
+- 架空URL・サイト内検索URLによるSERP穴埋めを登録時に拒否。
+- Claude / Geminiの両方で同一V2契約を使用。
+- GREEN＋YELLOW 10件、または5サイクルで停止する既存運用は維持。
+
 ## v0.14.6
 
 - Changed SERP review from one large batch to cycles of at most 5 candidates.
