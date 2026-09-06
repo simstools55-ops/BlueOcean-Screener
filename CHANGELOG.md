@@ -1,3 +1,9 @@
+## v0.14.10 - 2026-09-06
+- Claude回答の `checked_count` と `serp_evidence` 件数がずれた場合、BOSが `serp_evidence.length` を実確認件数として自動正規化するよう変更。
+- 実在確認済み証拠が最低5件あれば、AIの単純な数え間違いではSERP登録を停止しない。
+- SERP再評価ルートにも同じ正規化を適用。
+- SERP履歴の Checked Count には正規化後の実件数を保存。
+
 ## v0.14.9 - 2026-09-06
 - Fixed SERP workflow dialog client-side JavaScript escaping.
 - Restored Claude ZIP button, answer registration, and transition button click handlers.

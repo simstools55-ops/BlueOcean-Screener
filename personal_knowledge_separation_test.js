@@ -1,7 +1,7 @@
 const fs=require('fs');
 const code=fs.readFileSync('Code.gs','utf8');
 function ok(c,m){if(!c){console.error('FAIL:',m);process.exitCode=1}else console.log('PASS:',m)}
-ok(code.includes("const SBOS_VERSION = '0.14.9';"),'v0.14.9 version');
+ok(code.includes("const SBOS_VERSION = '0.14.10';"),'v0.14.10 version');
 ok(code.includes('例：サンプルサイト'),'neutral site example');
 ok(code.includes('https://example.com/'),'neutral URL example');
 ok(code.includes('A900001'),'synthetic Article ID example');
@@ -24,6 +24,8 @@ ok(!code.includes('Gemini用ファイルを作成'),'Gemini SERP dialog button r
 
 ok(code.includes('SERP_BATCH_SIZE: 5'),'SERP batch size 5');
 ok(code.includes('SERP_CHECK_DEPTH: 5'),'SERP minimum verified evidence 5');
+ok(code.includes('r.checked_count=actualChecked;'),'normalizes checked_count from actual evidence length');
+ok(!code.includes('checked_count と serp_evidence 件数が一致しません'),'does not reject simple checked_count mismatch');
 ok(code.includes('SERP_MAX_CYCLES: 5'),'SERP max cycles 5');
 ok(code.includes('SERP_TARGET_YELLOW_PLUS: 10'),'SERP GREEN+YELLOW target 10');
 ok(code.includes('serp_evidence'),'verified SERP evidence contract');
