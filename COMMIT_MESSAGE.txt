@@ -1,1 +1,1 @@
-chore(release): finalize SIMS Blue Ocean Screener v0.13.6 freeze audit fix
+feat: add rank-based SERP grading and candidate re-evaluation in BOS v0.14.0

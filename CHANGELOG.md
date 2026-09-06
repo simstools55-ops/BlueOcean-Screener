@@ -1,3 +1,13 @@
+## v0.14.0
+
+- Unified BOS SERP judgment philosophy with SIMS Manager.
+- AI now inspects top 30 SERP results and returns `estimated_reachable_rank`; BOS maps rank to GREEN/YELLOW/PALE PINK/RED.
+- Added BLOCK as a separate hard-stop gate.
+- GREEN/YELLOW/PALE PINK become user-selectable aCreator candidates after cannibal review.
+- Added persistent `Candidate Pool` and `_CandidateHistory`.
+- Added single-keyword re-evaluation using current cannibal pre-check plus fresh top-30 SERP review.
+- Migrates legacy saved session candidates into Candidate Pool, excluding BLOCK.
+
 ## v0.13.6
 
 - Freeze audit consistency fix.
