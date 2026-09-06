@@ -1,1 +1,1 @@
-v0.14.8: use Claude-only SERP review and detect existing-site articles
+v0.14.9: fix SERP dialog Claude ZIP button and client JS escaping

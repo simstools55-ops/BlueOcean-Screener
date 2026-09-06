@@ -1,3 +1,8 @@
+## v0.14.9 - 2026-09-06
+- Fixed SERP workflow dialog client-side JavaScript escaping.
+- Restored Claude ZIP button, answer registration, and transition button click handlers.
+- Added generated-dialog JavaScript parse regression check during release validation.
+
 ## v0.14.8 - 2026-09-06
 
 - SERP精査をClaude専用へ統一し、Gemini用Markdown生成・UIボタン・回答案内を削除。
