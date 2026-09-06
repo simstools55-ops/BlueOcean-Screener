@@ -1,1 +1,1 @@
-BOS v0.14.5: add Gemini SERP review Markdown output alongside Claude ZIP
+BOS v0.14.6: add 5-candidate x top-20 SERP cycles with 10-or-5 stop rule

@@ -1,3 +1,14 @@
+## v0.14.6
+
+- Changed SERP review from one large batch to cycles of at most 5 candidates.
+- Each candidate now requires the current top 20 organic results (`serp_top20`) rather than top 30.
+- Added mechanical validation that both `checked_count >= 20` and at least 20 SERP entries are present.
+- Added cycle stopping rules: stop when cumulative GREEN+YELLOW reaches 10, or after 5 completed cycles.
+- PALE PINK remains an operational article candidate but does not count toward the GREEN+YELLOW target.
+- RED/BLOCK continue to be removed from operational Candidates/Candidate Pool while preserving history.
+- Added a “next 5 candidates” continuation action and cycle progress display.
+- Kept backward import compatibility for v0.14.5 responses containing `serp_top30`.
+
 ## v0.14.5
 
 - Added a Gemini-specific SERP review Markdown output alongside the existing Claude ZIP.
