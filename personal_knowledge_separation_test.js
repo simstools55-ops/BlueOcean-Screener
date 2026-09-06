@@ -1,7 +1,7 @@
 const fs=require('fs');
 const code=fs.readFileSync('Code.gs','utf8');
 function ok(c,m){if(!c){console.error('FAIL:',m);process.exitCode=1}else console.log('PASS:',m)}
-ok(code.includes("const SBOS_VERSION = '0.14.10';"),'v0.14.10 version');
+ok(code.includes("const SBOS_VERSION = '0.14.11';"),'v0.14.11 version');
 ok(code.includes('例：サンプルサイト'),'neutral site example');
 ok(code.includes('https://example.com/'),'neutral URL example');
 ok(code.includes('A900001'),'synthetic Article ID example');
@@ -33,3 +33,9 @@ ok(code.includes('serp_evidence'),'verified SERP evidence contract');
 ok(code.includes("'EXISTING_ARTICLE':'既存記事確認済み'"),'existing article status label');
 ok(code.includes('sbosEvidenceHasOwnSite_'),'own-site SERP evidence detection');
 ok(code.includes("st === 'EXISTING_ARTICLE'"),'existing article operational pruning');
+
+ok(code.includes('function sbosSaveSerpSessionFast_()'), 'fast SERP session saver');
+ok(code.includes('function sbosSyncCandidatePoolFast_()'), 'fast Candidate Pool sync');
+ok(code.includes('function sbosAppendCandidateHistoryBatch_'), 'batch history writer');
+ok(code.includes('function sbosApplyCandidateFormattingFast_()'), 'fast candidate formatter');
+ok(!code.includes("sbosSetHomeStatus_(summary); sbosSyncCandidatePool_(); sbosSaveCurrentBlogSession_();"), 'old duplicate SERP sync/save path removed');

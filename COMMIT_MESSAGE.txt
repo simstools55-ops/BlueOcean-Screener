@@ -1,1 +1,1 @@
-v0.14.10: normalize SERP checked_count from actual evidence length
+perf: accelerate BOS SERP answer registration for v0.14.11

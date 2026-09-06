@@ -1,3 +1,11 @@
+## v0.14.11 - 2026-09-06
+- SERP回答登録ルートを高速化し、背景シートのちらつきにつながる重複I/Oを削減。
+- Candidate Pool同期の二重実行を解消し、SERP登録専用の一括同期へ変更。
+- SERP登録時のセッション保存をCandidates / State / SERP Resultsに限定。
+- Candidate Historyを一括書込みに変更。
+- Candidatesの除外・並替をメモリ上で処理し、一括書込み後は軽量書式更新のみ実施。
+- 判定仕様・停止条件は変更なし。
+
 ## v0.14.10 - 2026-09-06
 - Claude回答の `checked_count` と `serp_evidence` 件数がずれた場合、BOSが `serp_evidence.length` を実確認件数として自動正規化するよう変更。
 - 実在確認済み証拠が最低5件あれば、AIの単純な数え間違いではSERP登録を停止しない。
