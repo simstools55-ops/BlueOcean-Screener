@@ -1,3 +1,12 @@
+## v0.14.1
+
+- Candidate Pool display is now strictly filtered by the current target-site context.
+- When no target site is selected, only candidates collected without a target site are shown.
+- New-site discovery candidates remain isolated in their own context.
+- Hidden candidates from other sites are automatically unchecked and cannot be selected for re-evaluation.
+- Home now reports the Candidate Pool count for the current site context only.
+- Candidate data remains preserved across site switching; this release changes visibility and selection scope, not storage.
+
 ## v0.14.0
 
 - Unified BOS SERP judgment philosophy with SIMS Manager.

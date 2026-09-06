@@ -1,1 +1,1 @@
-feat: add rank-based SERP grading and candidate re-evaluation in BOS v0.14.0
+fix: scope Candidate Pool to current target site
