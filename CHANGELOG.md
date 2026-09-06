@@ -1,3 +1,11 @@
+## v0.14.5
+
+- Added a Gemini-specific SERP review Markdown output alongside the existing Claude ZIP.
+- Gemini output is a single uploadable `.md` file; no ZIP extraction is required.
+- Kept the same top-30 SERP evidence contract and rank-based BOS grading.
+- Made the SERP response-paste workflow provider-neutral so Claude and Gemini responses use the same importer.
+- Kept cannibal review and the rest of the SIMS standard AI workflow unchanged.
+
 ## v0.14.4
 
 - Added 2-word keyword counts to the keyword-import completion dialog.

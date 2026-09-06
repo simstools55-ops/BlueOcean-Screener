@@ -1,1 +1,1 @@
-BOS v0.14.4: top-30 2-4 word screening and keep only G/Y/P candidates
+BOS v0.14.5: add Gemini SERP review Markdown output alongside Claude ZIP

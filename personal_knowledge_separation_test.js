@@ -1,7 +1,7 @@
 const fs=require('fs');
 const code=fs.readFileSync('Code.gs','utf8');
 function ok(c,m){if(!c){console.error('FAIL:',m);process.exitCode=1}else console.log('PASS:',m)}
-ok(code.includes("const SBOS_VERSION = '0.14.4';"),'v0.14.4 version');
+ok(code.includes("const SBOS_VERSION = '0.14.5';"),'v0.14.5 version');
 ok(code.includes('例：サンプルサイト'),'neutral site example');
 ok(code.includes('https://example.com/'),'neutral URL example');
 ok(code.includes('A900001'),'synthetic Article ID example');
@@ -18,3 +18,6 @@ ok(code.includes('MAX_SERP_QUEUE: 30'),'SERP first-stage queue capped at 30');
 ok(code.includes("words === 2 || words === 3 || words === 4"),'2/3/4-word primary eligibility');
 ok(code.includes("'EXISTING_2WORD'"),'2-word screening source');
 ok(code.includes("st === 'RED' || st === 'BLOCK'"),'RED/BLOCK operational pruning');
+
+ok(code.includes('sbosCreateGeminiSerpReviewFileForWorkflow'),'Gemini SERP review output');
+ok(code.includes('Gemini用ファイルを作成'),'Gemini SERP dialog button');
