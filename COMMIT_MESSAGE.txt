@@ -1,1 +1,1 @@
-fix: add consistent busy feedback to BOS dialogs
+BOS v0.14.3: single-case Creator flow and Candidate Pool cleanup

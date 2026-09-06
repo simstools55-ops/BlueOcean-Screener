@@ -1,3 +1,10 @@
+## v0.14.3
+
+- Reordered the standard menu into the 1-7 operational flow and moved saved-candidate actions into an unnumbered submenu.
+- Changed aCreator referral handling to exactly one selected candidate per operation.
+- Graduated aCreator-completed / SIMS Manager-registered candidates from Candidate Pool.
+- Wrapped Candidate Pool rationale text for readability.
+
 ## v0.14.2
 
 - Added immediate busy-state feedback to major dialog action buttons.
