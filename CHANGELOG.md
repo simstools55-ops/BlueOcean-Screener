@@ -1,3 +1,11 @@
+## v0.14.2
+
+- Added immediate busy-state feedback to major dialog action buttons.
+- Processing buttons are disabled while server-side work is running and show a spinner plus status text.
+- Copy buttons show "copying" and explicit completion feedback.
+- Added feedback to SERP/Cannibal answer registration, aCreator batch actions, workflow transitions, and Candidate Pool re-evaluation.
+- Existing DrivePicker busy overlay/spinner behavior is retained.
+
 ## v0.14.1
 
 - Candidate Pool display is now strictly filtered by the current target-site context.
