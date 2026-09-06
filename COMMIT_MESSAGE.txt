@@ -1,1 +1,1 @@
-v0.14.7: switch SERP review to verified evidence and reachable bands
+v0.14.8: use Claude-only SERP review and detect existing-site articles

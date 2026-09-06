@@ -1,10 +1,10 @@
 {
   "product_name": "SIMS Blue Ocean Screener",
   "product_short_name": "SIMS-BOS",
-  "version": "0.14.7",
+  "version": "0.14.8",
   "release_type": "Development / Operational Test",
   "standard_ai": "Claude",
   "platform": "Google Spreadsheet + Apps Script",
-  "serp_review_ai": "Claude / Gemini (manual web evidence review, 5 candidates per cycle, minimum 8 verified results per candidate)",
+  "serp_review_ai": "Claude (manual web evidence review, 5 candidates per cycle, minimum 5 verified results per candidate)",
   "serp_judgment": "reachable_band: TOP10 / TOP20 / TOP30 / OUT; BOS maps to GREEN / YELLOW / PALE_PINK / RED"
 }
