@@ -1,6 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.14
+ * Blue Ocean Screener v0.14.15
  * Single-Code Apps Script distribution.
+ * v0.14.15: preserve new-site fit/dimension values in the in-memory candidate row so the final batched Candidates rewrite does not erase them.
  * v0.14.13: make the aCreator workflow sequential: hide SIMS Manager registration until the aCreator response is saved, then guide the user to register the new article and record its Article ID.
  * v0.14.11: accelerate SERP answer registration by batching history/pool I/O, avoiding duplicate pool sync, and saving only changed session snapshots.
  * v0.14.10: normalize checked_count from actual serp_evidence length so minor AI counting errors do not block valid reviews.
@@ -24,11 +25,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.14
+ * Blue Ocean Screener v0.14.15
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.14';
+const SBOS_VERSION = '0.14.15';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -2532,7 +2533,7 @@ function sbosApplySerpReviewPayload_(payload, source) {
     const ownSiteHit=sbosEvidenceHasOwnSite_(evidence);
     const finalDecision=ownSiteHit?'EXISTING_ARTICLE':(r.hard_block===true?'BLOCK':sbosSerpGradeFromBand_(band)); counts[finalDecision]++;
     row[5]=Math.round(score); row[6]=sbosIsNewSiteMode_()?'NOT_RUN':(['GREEN','YELLOW','PALE_PINK'].includes(finalDecision)?'PENDING':'NOT_RUN'); row[7]=String(r.search_intent||row[7]||''); row[8]=ownSiteHit?('対象サイト自身の記事をSERP証拠で確認。新規記事候補から除外。 '+String(r.evidence_summary||'')):String(r.evidence_summary||''); row[11]=sbosIntentKey_(sbosNormalizeKeyword_(row[2])); row[12]=finalDecision; row[1]=sbosIsNewSiteMode_()?finalDecision:(['GREEN','YELLOW','PALE_PINK'].includes(finalDecision)?sbosStatusLabel_('CANNIBAL_PENDING'):sbosStatusLabel_(finalDecision)); row[27]=band; row[28]=String(payload.reviewed_at||payload.evaluated_at||sbosNow_()); row[29]=finalDecision==='BLOCK'?String(r.block_reason||'強制停止条件'):(ownSiteHit?'対象サイト自身の記事をSERP証拠で確認':'');
-    if(sbosIsNewSiteMode_()){const ns=Number(r.new_site_fit_score),dims=r.new_site_dimensions||{};if(isFinite(ns))sh.getRange(i+2,19,1,9).setValues([[Math.round(ns),Number(dims.entry_ease)||'',Number(dims.demand)||'',Number(dims.serp_gap)||'',Number(dims.expansion)||'',Number(dims.cluster_potential)||'',Number(dims.continuity)||'',Number(dims.risk)||'',String(r.new_site_assessment||'')]]);}
+    if(sbosIsNewSiteMode_()){const ns=Number(r.new_site_fit_score),dims=r.new_site_dimensions||{};if(isFinite(ns)){row[18]=Math.round(ns);row[19]=Number(dims.entry_ease)||'';row[20]=Number(dims.demand)||'';row[21]=Number(dims.serp_gap)||'';row[22]=Number(dims.expansion)||'';row[23]=Number(dims.cluster_potential)||'';row[24]=Number(dims.continuity)||'';row[25]=Number(dims.risk)||'';row[26]=String(r.new_site_assessment||'');}}
     historyBatch.push({keyword:row[2],status:finalDecision,reachableBand:band,when:payload.reviewed_at||payload.evaluated_at||sbosNow_(),stage:'SERP_REVIEW',evidence:String(r.evidence_summary||'')}); applied++;
   });
   if(!applied)throw new Error('Candidatesのキーワードと一致するSERP結果がありませんでした。');

@@ -1,3 +1,8 @@
+## v0.14.15 - 2026-09-30
+- Fix: 新規サイトSERP回答登録時、`new_site_fit_score` / 7軸 / `new_site_assessment` をCandidatesの行配列へ保持してから一括書き戻すよう修正。
+- 原因: S〜AA列へ直接書き込んだ直後、旧データ配列による30列一括書き戻しで空欄に上書きされていた。
+- SERP判定・停止条件・Claude返却契約は変更なし。
+
 ## v0.14.14 - 2026-09-30
 
 - Fixed Claude SERP review package contract delivery.
