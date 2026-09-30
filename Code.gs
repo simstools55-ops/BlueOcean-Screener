@@ -1,6 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.16
+ * Blue Ocean Screener v0.14.17
  * Single-Code Apps Script distribution.
+ * v0.14.17: improve SERP package UI state and block package creation after stop condition.
  * v0.14.16: add dedicated save/restore snapshots for in-progress NEW_SITE discovery runs.
  * v0.14.15: preserve new-site fit/dimension values in the in-memory candidate row so the final batched Candidates rewrite does not erase them.
  * v0.14.13: make the aCreator workflow sequential: hide SIMS Manager registration until the aCreator response is saved, then guide the user to register the new article and record its Article ID.
@@ -26,11 +27,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.16
+ * Blue Ocean Screener v0.14.17
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.16';
+const SBOS_VERSION = '0.14.17';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -1911,6 +1912,12 @@ function sbosCreateSerpReviewPackage(options) {
   let stage = '開始';
 
   try {
+    stage = '停止条件確認';
+    const stopProgress = sbosGetSerpCycleProgress_();
+    if (stopProgress.stopReached) {
+      throw new Error('SERP精査は完了しています。' + stopProgress.stopReason + '「4. 候補・進捗を確認」へ進んでください。');
+    }
+
     stage = 'Candidates確認';
     // Package作成では全シート再初期化は不要。
     // sbosEnsureSheets_() はHome再描画・Candidates再書式化を伴うため呼ばない。
@@ -2166,6 +2173,10 @@ function sbosShowSerpWorkflowDialog() {
 
 function sbosBuildSerpWorkflowHtml_(isNewSite, siteName, pending) {
   const progress = sbosGetSerpCycleProgress_();
+  const activeBatchKeys = sbosGetState_('serp_active_batch_keys') || '';
+  const packageFileName = activeBatchKeys ? (sbosGetState_('serp_package_file_name') || '') : '';
+  const packageCreated = !!packageFileName;
+  const stopReached = !!progress.stopReached;
   const modeInfo = isNewSite
     ? 'モード: <b>新規サイト用キーワード探索</b><br>カニバリ判定: <b>実施しない</b><br>'
     : '対象サイト: <b>' + sbosEscapeHtml_(siteName) + '</b><br>';
@@ -2202,14 +2213,15 @@ function sbosBuildSerpWorkflowHtml_(isNewSite, siteName, pending) {
     'SERP精査待ち: <b>' + Number(pending || 0) + '件</b><br>' +
     'サイクル: <b>' + progress.completedCycles + '/' + progress.maxCycles + ' 完了</b>　GREEN＋YELLOW: <b>' + progress.yellowPlusTotal + '/' + progress.target + '件</b><br>' +
     '1サイクルは最大5候補です。各候補は実在確認できた検索証拠を最低5件目安で評価します。停止条件はGREEN＋YELLOW 10件、または5サイクル完了です。<br>' +
-    'Claude用ZIPを作成し、回答登録までこの画面で続けて処理できます。</div>' +
+    (stopReached ? '<b>SERP精査は完了しました。</b> '+sbosEscapeHtml_(progress.stopReason)+' 次は候補・進捗を確認してください。</div>' : 'Claude用ZIPを作成し、回答登録までこの画面で続けて処理できます。</div>') +
 
     '<div class="b"><div class="l">① SERP精査依頼を作成</div>' +
-    '<div id="pkg" class="st">未作成</div>' +
+    '<div id="pkg" class="st">' + (stopReached ? 'SERP精査完了。新しいZIPは作成できません。' : (packageCreated ? '✓ 作成済み\nファイル: ' + sbosEscapeHtml_(packageFileName) + '\n\n必要な場合だけZIPを再作成できます。' : '未作成')) + '</div>' +
     '<div class="a">' +
-    '<button id="serpClaudeBtn" type="button" class="p"><span class="sp"></span><span class="tx">Claude用ZIPを作成</span></button>' +
+    (stopReached ? '' : '<button id="serpClaudeBtn" type="button" class="' + (packageCreated ? 's' : 'p') + '"><span class="sp"></span><span class="tx">' + (packageCreated ? 'ZIPを再作成' : 'Claude用ZIPを作成') + '</span></button>') +
     '</div></div>' +
 
+    (stopReached ? '<div class="b"><div class="l">SERP精査完了</div><div class="st">GREEN＋YELLOW: ' + progress.yellowPlusTotal + '/' + progress.target + '件\n' + sbosEscapeHtml_(progress.stopReason) + '</div><div class="a"><button id="closeBtn" type="button" class="s">閉じる</button><button id="nextCandidates" type="button" class="p"><span class="sp"></span><span class="tx">4. 候補・進捗を確認</span></button></div></div>' :
     '<div class="b"><div class="l">② AI回答全文を貼り付け</div>' +
     '<textarea id="ans" placeholder="Claudeの回答全文をここへ貼り付け"></textarea>' +
     '<div id="rst" class="st">回答待ち</div><div class="a">' +
@@ -2218,10 +2230,10 @@ function sbosBuildSerpWorkflowHtml_(isNewSite, siteName, pending) {
     '<button id="nextCandidates" type="button" class="p" style="display:none"><span class="sp"></span><span class="tx">4. 候補・進捗を確認</span></button>' +
     '<button id="nextCannibal" type="button" class="p" style="display:none"><span class="sp"></span><span class="tx">6. カニバリ精査へ</span></button>' +
     '<button id="regSerp" type="button" class="p"><span class="sp"></span><span class="tx">回答を登録</span></button>' +
-    '</div></div><div class="debug">Blue Ocean Screener v' + SBOS_VERSION + '</div></div>' +
+    '</div></div>') + '<div class="debug">Blue Ocean Screener v' + SBOS_VERSION + '</div></div>' +
 
     '<script>(function(){"use strict";' +
-    'var newSiteMode=' + newSiteJs + ';' +
+    'var newSiteMode=' + newSiteJs + ';var stopReached=' + (stopReached ? 'true' : 'false') + ';' +
     'function q(id){return document.getElementById(id)}' +
     'function busy(b,on,text){if(!b)return;var t=b.querySelector(".tx");if(on){b.dataset.oldLabel=t?t.textContent:"";if(t)t.textContent=text||"処理中…";b.classList.add("working");b.disabled=true}else{if(t)t.textContent=b.dataset.oldLabel||"実行";b.classList.remove("working");b.disabled=false}}' +
     'function showOv(msg){q("overlaySub").textContent=msg||"しばらくお待ちください。";q("pkgOverlay").classList.add("on")}' +
@@ -2234,8 +2246,8 @@ function sbosBuildSerpWorkflowHtml_(isNewSite, siteName, pending) {
       'showOv("候補を確認してClaude用ZIPを準備しています。\\nGoogle Driveへの保存完了までお待ちください。");' +
       'setTimeout(function(){' +
         'google.script.run.withSuccessHandler(function(r){' +
-          'hideOv();busy(b,false);' +
-          's.textContent="作成完了\\n形式: Claude用ZIP\\nファイル: "+r.fileName+"\\n保存先: "+r.folderName+"\\n候補: "+r.count+"件\\n処理時間: "+((r.elapsedMs||0)/1000).toFixed(1)+"秒\\n\\nこのZIPをClaude.aiへアップロードしてください。";' +
+          'hideOv();busy(b,false);if(b){var tx=b.querySelector(".tx");if(tx)tx.textContent="ZIPを再作成";b.className="s";}' +
+          's.textContent="✓ 作成済み\\n\\n形式: Claude用ZIP\\nファイル: "+r.fileName+"\\n保存先: "+r.folderName+"\\n候補: "+r.count+"件\\n処理時間: "+((r.elapsedMs||0)/1000).toFixed(1)+"秒\\n\\nこのZIPをClaude.aiへアップロードしてください。";' +
         '}).withFailureHandler(function(e){' +
           'hideOv();busy(b,false);' +
           's.textContent="エラー\\n"+(e&&e.message?e.message:String(e));' +
@@ -2262,12 +2274,12 @@ function sbosBuildSerpWorkflowHtml_(isNewSite, siteName, pending) {
     'function goCannibal(){var b=q("nextCannibal");busy(b,true,"処理中…");google.script.run.withSuccessHandler(function(){google.script.host.close()}).withFailureHandler(function(e){busy(b,false);q("rst").textContent="エラー: "+(e&&e.message?e.message:String(e))}).sbosShowCannibalEvidencePicker()}' +
 
     'function bind(){' +
-      'q("serpClaudeBtn").addEventListener("click",createPackage);' +
-      'q("regSerp").addEventListener("click",registerSerp);' +
-      'q("nextCycle").addEventListener("click",goNextCycle);' +
-      'q("nextCandidates").addEventListener("click",goCandidates);' +
-      'q("nextCannibal").addEventListener("click",goCannibal);' +
-      'q("closeBtn").addEventListener("click",function(){google.script.host.close()});' +
+      'if(q("serpClaudeBtn"))q("serpClaudeBtn").addEventListener("click",createPackage);' +
+      'if(q("regSerp"))q("regSerp").addEventListener("click",registerSerp);' +
+      'if(q("nextCycle"))q("nextCycle").addEventListener("click",goNextCycle);' +
+      'if(q("nextCandidates"))q("nextCandidates").addEventListener("click",goCandidates);' +
+      'if(q("nextCannibal"))q("nextCannibal").addEventListener("click",goCannibal);' +
+      'if(q("closeBtn"))q("closeBtn").addEventListener("click",function(){google.script.host.close()});' +
     '}' +
     'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",bind)}else{bind()}' +
     '})();</script></body></html>';

@@ -1,9 +1,11 @@
-# SIMS Blue Ocean Screener v0.14.16
+# SIMS Blue Ocean Screener v0.14.17
 
-## v0.14.16 Claude SERP返却契約の強化
+## v0.14.17 SERP精査画面の状態制御
 
-- Claude用ZIPへ `CLAUDE-INSTRUCTIONS.txt` と `SERP_REVIEW_RESULT_V2_SCHEMA.json` を追加。
-- 通常のSEO相談・記事案だけで終了せず、SERP精査と `SIMS_BOS_SERP_REVIEW_RESULT_V2` JSON返却を完了するよう明示。
+- ZIP作成後は「✓ 作成済み」と表示し、主操作を「ZIPを再作成」へ切り替え。
+- GREEN＋YELLOW 10件到達など停止条件成立後は、新しいSERP ZIPを作成できないよう制御。
+- 停止後は「4. 候補・進捗を確認」へ明確に誘導。
+- サーバー側にも停止条件ガードを追加し、UIを迂回した重複Package作成を防止。
 
 ## v0.14.13 aCreator → SIMS Manager 順次登録UI
 - ② aCreator回答を登録するまでは③ SIMS Manager登録結果を表示しない。
