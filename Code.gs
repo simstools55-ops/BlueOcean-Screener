@@ -31,7 +31,7 @@
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.17';
+const SBOS_VERSION = '0.14.18';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -148,6 +148,7 @@ const SBOS_SHEETS = {
   ARTICLES: '_ExistingArticles',
   SERP_RESULTS: '_SerpReview',
   BLOG_SESSIONS: '_BlogSessions',
+  NEW_SITE_SESSIONS: '_NewSiteSessions',
   SESSION_KEYWORDS: '_SessionKeywords',
   SESSION_CANDIDATES: '_SessionCandidates',
   SESSION_SETTINGS: '_SessionSettings',
@@ -790,7 +791,17 @@ function sbosRepairCurrentBlogIdentity_() {
   return repaired;
 }
 
-const SBOS_NEW_SITE_SESSION_KEY = '__NEW_SITE_DISCOVERY__';
+const SBOS_NEW_SITE_SESSION_KEY = '__NEW_SITE_DISCOVERY__'; // v0.14.17 legacy single-slot key
+
+function sbosInitNewSiteSessionsSheet_() {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(SBOS_SHEETS.NEW_SITE_SESSIONS);
+  if (!sh) sh = ss.insertSheet(SBOS_SHEETS.NEW_SITE_SESSIONS);
+  if (!sh.isSheetHidden()) sh.hideSheet();
+  const headers = ['RunKey','InputFile','SavedAt','Status','CompletedCycles','YellowPlus','Pending'];
+  sh.getRange(1,1,1,headers.length).setValues([headers]).setFontWeight('bold');
+  return sh;
+}
 
 function sbosHasSessionSnapshot_(storeName, siteKey) {
   const sh = sbosInitSessionStoreSheet_(storeName);
@@ -799,31 +810,67 @@ function sbosHasSessionSnapshot_(storeName, siteKey) {
     .some(x => String(x || '') === String(siteKey || ''));
 }
 
+function sbosNewSiteRunKey_() {
+  let key = String(sbosGetState_('new_site_run_key') || '').trim();
+  if (!key) {
+    key = 'NS-' + Utilities.getUuid();
+    sbosSetState_('new_site_run_key', key);
+  }
+  return key;
+}
+
+function sbosUpsertNewSiteSessionMeta_(key) {
+  const sh = sbosInitNewSiteSessionsSheet_();
+  const p = sbosGetSerpCycleProgress_();
+  const row = [key, sbosGetState_('input_file_name') || '', sbosGetState_('new_site_saved_at') || sbosNow_(),
+    sbosGetState_('status') || '', p.completedCycles, p.yellowPlusTotal, p.pending];
+  let target = -1;
+  if (sh.getLastRow() >= 2) {
+    const keys = sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues().flat();
+    target = keys.findIndex(x => String(x || '') === key);
+  }
+  if (target >= 0) sh.getRange(target+2,1,1,row.length).setValues([row]);
+  else sh.appendRow(row);
+}
+
+function sbosEnsureLegacyNewSiteMeta_() {
+  const key = SBOS_NEW_SITE_SESSION_KEY;
+  if (!sbosHasSessionSnapshot_(SBOS_SHEETS.SESSION_CANDIDATES, key)) return;
+  const sh = sbosInitNewSiteSessionsSheet_();
+  const keys = sh.getLastRow() >= 2 ? sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues().flat() : [];
+  if (keys.some(x => String(x || '') === key)) return;
+  sh.appendRow([key, 'v0.14.17以前の保存データ', '', '保存済み', '', '', '']);
+}
+
+function sbosListNewSiteDiscoveries_() {
+  sbosEnsureLegacyNewSiteMeta_();
+  const sh = sbosInitNewSiteSessionsSheet_();
+  if (sh.getLastRow() < 2) return [];
+  return sh.getRange(2,1,sh.getLastRow()-1,7).getDisplayValues()
+    .filter(r => String(r[0] || '').trim())
+    .map(r => ({runKey:r[0], inputFile:r[1], savedAt:r[2], status:r[3], completedCycles:r[4], yellowPlus:r[5], pending:r[6]}))
+    .sort((a,b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+}
+
 function sbosSaveNewSiteDiscovery_() {
   if (!sbosIsNewSiteMode_()) return {saved:false, reason:'NOT_NEW_SITE'};
-  const key = SBOS_NEW_SITE_SESSION_KEY;
+  const key = sbosNewSiteRunKey_();
+  sbosSetState_('new_site_saved_at', sbosNow_());
+  sbosSetState_('new_site_saved_input_file', sbosGetState_('input_file_name') || '');
   sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_KEYWORDS, key, SBOS_SHEETS.KEYWORDS);
   sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_CANDIDATES, key, SBOS_SHEETS.CANDIDATES);
   sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_SETTINGS, key, SBOS_SHEETS.SETTINGS);
   sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_STATE, key, SBOS_SHEETS.STATE);
   sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_SERP, key, SBOS_SHEETS.SERP_RESULTS);
-  sbosSetState_('new_site_saved_at', sbosNow_());
-  sbosSetState_('new_site_saved_input_file', sbosGetState_('input_file_name') || '');
-  // State was updated above; refresh its snapshot once so the save metadata is included.
-  sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_STATE, key, SBOS_SHEETS.STATE);
-  return {
-    saved:true,
-    inputFile:sbosGetState_('input_file_name') || '',
-    status:sbosGetState_('status') || '',
-    savedAt:sbosGetState_('new_site_saved_at') || ''
-  };
+  sbosUpsertNewSiteSessionMeta_(key);
+  return {saved:true, runKey:key, inputFile:sbosGetState_('input_file_name') || '', status:sbosGetState_('status') || '', savedAt:sbosGetState_('new_site_saved_at') || ''};
 }
 
-function sbosRestoreNewSiteDiscovery_() {
-  const key = SBOS_NEW_SITE_SESSION_KEY;
-  if (!sbosHasSessionSnapshot_(SBOS_SHEETS.SESSION_SETTINGS, key) ||
-      !sbosHasSessionSnapshot_(SBOS_SHEETS.SESSION_CANDIDATES, key)) {
-    throw new Error('保存済みの新規サイト探索がありません。');
+function sbosRestoreNewSiteDiscovery_(key) {
+  key = String(key || '').trim();
+  if (!key) throw new Error('再開する探索を選択してください。');
+  if (!sbosHasSessionSnapshot_(SBOS_SHEETS.SESSION_SETTINGS, key) || !sbosHasSessionSnapshot_(SBOS_SHEETS.SESSION_CANDIDATES, key)) {
+    throw new Error('保存済みの新規サイト探索が見つかりません。');
   }
   sbosRestoreSessionSnapshot_(SBOS_SHEETS.SESSION_SETTINGS, key, SBOS_SHEETS.SETTINGS);
   sbosRestoreSessionSnapshot_(SBOS_SHEETS.SESSION_STATE, key, SBOS_SHEETS.STATE);
@@ -832,34 +879,58 @@ function sbosRestoreNewSiteDiscovery_() {
   sbosRestoreSessionSnapshot_(SBOS_SHEETS.SESSION_SERP, key, SBOS_SHEETS.SERP_RESULTS);
   sbosSyncStatePropertiesFromSheet_();
   sbosSetOperationMode_(SBOS_MODE.NEW_SITE);
-  sbosSetSetting_('site_name','');
-  sbosSetSetting_('site_url','');
-  sbosInitKeywords_();
-  sbosInitCandidates_();
-  sbosEnsureLightweightHome_(true);
-  sbosApplyCandidateFormatting_();
-  sbosRefreshHomeSummary_();
+  sbosSetSetting_('site_name',''); sbosSetSetting_('site_url','');
+  sbosSetState_('new_site_run_key', key);
+  sbosInitKeywords_(); sbosInitCandidates_(); sbosEnsureLightweightHome_(true); sbosApplyCandidateFormatting_(); sbosRefreshHomeSummary_();
   const cand = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   if (cand) SpreadsheetApp.getActive().setActiveSheet(cand);
-  return {
-    ok:true,
-    inputFile:sbosGetState_('input_file_name') || sbosGetState_('new_site_saved_input_file') || '',
-    status:sbosGetState_('status') || '',
-    savedAt:sbosGetState_('new_site_saved_at') || ''
-  };
+  return {ok:true, runKey:key, inputFile:sbosGetState_('input_file_name') || sbosGetState_('new_site_saved_input_file') || '', status:sbosGetState_('status') || '', savedAt:sbosGetState_('new_site_saved_at') || ''};
+}
+
+function sbosDeleteSessionSnapshotKey_(storeName, key) {
+  const sh = sbosInitSessionStoreSheet_(storeName);
+  if (sh.getLastRow() < 2) return;
+  const vals = sh.getRange(2,1,sh.getLastRow()-1,3).getValues().filter(r => String(r[0] || '') !== key);
+  sh.clearContents();
+  sh.getRange(1,1,1,3).setValues([['SiteKey','RowIndex','RowJson']]).setFontWeight('bold');
+  if (vals.length) sh.getRange(2,1,vals.length,3).setValues(vals);
+}
+
+function sbosDeleteNewSiteDiscovery(runKey) {
+  const key = String(runKey || '').trim();
+  if (!key) throw new Error('削除する探索を選択してください。');
+  sbosSessionStoreNames_().forEach(name => sbosDeleteSessionSnapshotKey_(name, key));
+  const sh = sbosInitNewSiteSessionsSheet_();
+  if (sh.getLastRow() >= 2) {
+    const vals = sh.getRange(2,1,sh.getLastRow()-1,7).getValues().filter(r => String(r[0] || '') !== key);
+    sh.clearContents();
+    sh.getRange(1,1,1,7).setValues([['RunKey','InputFile','SavedAt','Status','CompletedCycles','YellowPlus','Pending']]).setFontWeight('bold');
+    if (vals.length) sh.getRange(2,1,vals.length,7).setValues(vals);
+  }
+  if (String(sbosGetState_('new_site_run_key') || '') === key) sbosSetState_('new_site_run_key','');
+  return {ok:true};
+}
+
+function sbosRestoreNewSiteDiscoveryFromDialog(runKey) {
+  return sbosRestoreNewSiteDiscovery_(runKey);
+}
+
+function sbosShowNewSiteDiscoveryResumeDialog_() {
+  const sessions = sbosListNewSiteDiscoveries_();
+  const rows = sessions.map(s => {
+    const name = sbosEscapeHtml_(s.inputFile || '入力ファイル未記録');
+    const meta = '保存: ' + sbosEscapeHtml_(s.savedAt || '旧版データ') + ' / 状態: ' + sbosEscapeHtml_(s.status || '未記録') +
+      (s.completedCycles !== '' ? ' / SERP ' + sbosEscapeHtml_(s.completedCycles) + '/5' : '') +
+      (s.yellowPlus !== '' ? '・GREEN+YELLOW ' + sbosEscapeHtml_(s.yellowPlus) + '/10' : '') +
+      (s.pending !== '' ? '・待ち ' + sbosEscapeHtml_(s.pending) + '件' : '');
+    return '<div class="run" data-key="' + sbosEscapeHtml_(s.runKey) + '"><div class="nm">' + name + '</div><div class="meta">' + meta + '</div><div class="acts"><button class="open" onclick="resumeRun(this)">この探索を再開</button><button class="del" onclick="deleteRun(this)">削除</button></div></div>';
+  }).join('');
+  const html = HtmlService.createHtmlOutput('<!doctype html><html><head><base target="_top"><style>body{font-family:Arial,sans-serif;margin:0;color:#202124}.wrap{padding:20px}.title{font-size:20px;font-weight:700;margin-bottom:8px}.lead{font-size:13px;color:#5f6368;line-height:1.6;margin-bottom:14px}.run{border:1px solid #dadce0;border-radius:9px;padding:13px;margin:10px 0}.nm{font-weight:700;font-size:14px;word-break:break-all}.meta{font-size:12px;color:#5f6368;margin-top:6px;line-height:1.5}.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}button{border:0;border-radius:6px;padding:8px 13px;font-weight:600;cursor:pointer}.open{background:#1a73e8;color:#fff}.del{background:#f1f3f4;color:#3c4043}.empty{padding:18px;background:#f8f9fa;border-radius:8px;color:#5f6368;font-size:13px}.st{font-size:12px;color:#5f6368;margin-top:12px;white-space:pre-wrap}</style></head><body><div class="wrap"><div class="title">保存した新規サイト探索を再開</div><div class="lead">再開する探索を選んでください。不要になった保存データは削除できます。</div>' + (rows || '<div class="empty">保存済みの新規サイト探索はありません。</div>') + '<div id="st" class="st"></div></div><script>function keyOf(b){return b.closest(".run").dataset.key}function lock(on){document.querySelectorAll("button").forEach(b=>b.disabled=on)}function resumeRun(b){lock(true);document.getElementById("st").textContent="復元しています…";google.script.run.withSuccessHandler(r=>{document.getElementById("st").textContent="復元しました。ダイアログを閉じて続けてください。";setTimeout(()=>google.script.host.close(),500)}).withFailureHandler(e=>{lock(false);document.getElementById("st").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRestoreNewSiteDiscoveryFromDialog(keyOf(b))}function deleteRun(b){if(!confirm("この保存済み探索を削除しますか？"))return;lock(true);google.script.run.withSuccessHandler(()=>{b.closest(".run").remove();lock(false);document.getElementById("st").textContent="削除しました。"}).withFailureHandler(e=>{lock(false);document.getElementById("st").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosDeleteNewSiteDiscovery(keyOf(b))}</script></body></html>').setWidth(650).setHeight(520);
+  SpreadsheetApp.getUi().showModalDialog(html, '保存した探索を再開');
 }
 
 function sbosRestoreNewSiteDiscoveryManual() {
-  const r = sbosRestoreNewSiteDiscovery_();
-  sbosShowWorkflowResult_(
-    '新規サイト探索を再開しました',
-    '<b>入力ファイル:</b> ' + sbosEscapeHtml_(r.inputFile || '未記録') + '<br>' +
-    '<b>保存日時:</b> ' + sbosEscapeHtml_(r.savedAt || '未記録') + '<br>' +
-    '<b>処理状態:</b> ' + sbosEscapeHtml_(r.status || '未実行') + '<br><br>' +
-    'Keywords・Candidates・SERP結果・新規サイト適性評価・処理状態を復元しました。',
-    '4. SERP・新規サイト適性を精査',
-    'sbosShowSerpWorkflowDialog'
-  );
+  sbosShowNewSiteDiscoveryResumeDialog_();
 }
 
 function sbosSaveCurrentBlogSessionManual() {
