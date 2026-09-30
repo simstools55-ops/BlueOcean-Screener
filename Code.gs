@@ -1,6 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.15
+ * Blue Ocean Screener v0.14.16
  * Single-Code Apps Script distribution.
+ * v0.14.16: add dedicated save/restore snapshots for in-progress NEW_SITE discovery runs.
  * v0.14.15: preserve new-site fit/dimension values in the in-memory candidate row so the final batched Candidates rewrite does not erase them.
  * v0.14.13: make the aCreator workflow sequential: hide SIMS Manager registration until the aCreator response is saved, then guide the user to register the new article and record its Article ID.
  * v0.14.11: accelerate SERP answer registration by batching history/pool I/O, avoiding duplicate pool sync, and saving only changed session snapshots.
@@ -25,11 +26,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.15
+ * Blue Ocean Screener v0.14.16
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.15';
+const SBOS_VERSION = '0.14.16';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -374,6 +375,7 @@ function sbosBuildMenu_() {
         .addItem('3. 候補を探す', 'sbosStartScreening')
         .addItem('4. SERP・新規サイト適性を精査', 'sbosShowSerpWorkflowDialog')
         .addItem('5. 評価済み候補を確認', 'sbosOpenNewSiteGreenCandidates')
+        .addItem('6. 保存した探索を再開', 'sbosRestoreNewSiteDiscoveryManual')
     )
     .addSubMenu(
       ui.createMenu('途中から再開・特別操作')
@@ -787,7 +789,92 @@ function sbosRepairCurrentBlogIdentity_() {
   return repaired;
 }
 
+const SBOS_NEW_SITE_SESSION_KEY = '__NEW_SITE_DISCOVERY__';
+
+function sbosHasSessionSnapshot_(storeName, siteKey) {
+  const sh = sbosInitSessionStoreSheet_(storeName);
+  if (sh.getLastRow() < 2) return false;
+  return sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues().flat()
+    .some(x => String(x || '') === String(siteKey || ''));
+}
+
+function sbosSaveNewSiteDiscovery_() {
+  if (!sbosIsNewSiteMode_()) return {saved:false, reason:'NOT_NEW_SITE'};
+  const key = SBOS_NEW_SITE_SESSION_KEY;
+  sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_KEYWORDS, key, SBOS_SHEETS.KEYWORDS);
+  sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_CANDIDATES, key, SBOS_SHEETS.CANDIDATES);
+  sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_SETTINGS, key, SBOS_SHEETS.SETTINGS);
+  sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_STATE, key, SBOS_SHEETS.STATE);
+  sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_SERP, key, SBOS_SHEETS.SERP_RESULTS);
+  sbosSetState_('new_site_saved_at', sbosNow_());
+  sbosSetState_('new_site_saved_input_file', sbosGetState_('input_file_name') || '');
+  // State was updated above; refresh its snapshot once so the save metadata is included.
+  sbosReplaceSessionSnapshot_(SBOS_SHEETS.SESSION_STATE, key, SBOS_SHEETS.STATE);
+  return {
+    saved:true,
+    inputFile:sbosGetState_('input_file_name') || '',
+    status:sbosGetState_('status') || '',
+    savedAt:sbosGetState_('new_site_saved_at') || ''
+  };
+}
+
+function sbosRestoreNewSiteDiscovery_() {
+  const key = SBOS_NEW_SITE_SESSION_KEY;
+  if (!sbosHasSessionSnapshot_(SBOS_SHEETS.SESSION_SETTINGS, key) ||
+      !sbosHasSessionSnapshot_(SBOS_SHEETS.SESSION_CANDIDATES, key)) {
+    throw new Error('保存済みの新規サイト探索がありません。');
+  }
+  sbosRestoreSessionSnapshot_(SBOS_SHEETS.SESSION_SETTINGS, key, SBOS_SHEETS.SETTINGS);
+  sbosRestoreSessionSnapshot_(SBOS_SHEETS.SESSION_STATE, key, SBOS_SHEETS.STATE);
+  sbosRestoreSessionSnapshot_(SBOS_SHEETS.SESSION_KEYWORDS, key, SBOS_SHEETS.KEYWORDS);
+  sbosRestoreSessionSnapshot_(SBOS_SHEETS.SESSION_CANDIDATES, key, SBOS_SHEETS.CANDIDATES);
+  sbosRestoreSessionSnapshot_(SBOS_SHEETS.SESSION_SERP, key, SBOS_SHEETS.SERP_RESULTS);
+  sbosSyncStatePropertiesFromSheet_();
+  sbosSetOperationMode_(SBOS_MODE.NEW_SITE);
+  sbosSetSetting_('site_name','');
+  sbosSetSetting_('site_url','');
+  sbosInitKeywords_();
+  sbosInitCandidates_();
+  sbosEnsureLightweightHome_(true);
+  sbosApplyCandidateFormatting_();
+  sbosRefreshHomeSummary_();
+  const cand = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
+  if (cand) SpreadsheetApp.getActive().setActiveSheet(cand);
+  return {
+    ok:true,
+    inputFile:sbosGetState_('input_file_name') || sbosGetState_('new_site_saved_input_file') || '',
+    status:sbosGetState_('status') || '',
+    savedAt:sbosGetState_('new_site_saved_at') || ''
+  };
+}
+
+function sbosRestoreNewSiteDiscoveryManual() {
+  const r = sbosRestoreNewSiteDiscovery_();
+  sbosShowWorkflowResult_(
+    '新規サイト探索を再開しました',
+    '<b>入力ファイル:</b> ' + sbosEscapeHtml_(r.inputFile || '未記録') + '<br>' +
+    '<b>保存日時:</b> ' + sbosEscapeHtml_(r.savedAt || '未記録') + '<br>' +
+    '<b>処理状態:</b> ' + sbosEscapeHtml_(r.status || '未実行') + '<br><br>' +
+    'Keywords・Candidates・SERP結果・新規サイト適性評価・処理状態を復元しました。',
+    '4. SERP・新規サイト適性を精査',
+    'sbosShowSerpWorkflowDialog'
+  );
+}
+
 function sbosSaveCurrentBlogSessionManual() {
+  if (sbosIsNewSiteMode_()) {
+    const n = sbosSaveNewSiteDiscovery_();
+    sbosShowWorkflowResult_(
+      '新規サイト探索を保存しました',
+      '<b>入力ファイル:</b> ' + sbosEscapeHtml_(n.inputFile || '未記録') + '<br>' +
+      '<b>保存日時:</b> ' + sbosEscapeHtml_(n.savedAt || '未記録') + '<br><br>' +
+      'Keywords・Candidates・SERP結果・新規サイト適性評価・処理状態を保存しました。<br>' +
+      '「新規サイト用キーワード探索 → 6. 保存した探索を再開」から復元できます。',
+      '',
+      ''
+    );
+    return;
+  }
   const r = sbosSaveCurrentBlogSession_();
   if (!r.saved) {
     SpreadsheetApp.getUi().alert('対象サイトが未設定です。');

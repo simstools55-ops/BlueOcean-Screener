@@ -1,1 +1,1 @@
-fix: preserve new-site SERP fit metrics in Candidates v0.14.15
+fix: support save and resume for new-site discovery runs v0.14.16

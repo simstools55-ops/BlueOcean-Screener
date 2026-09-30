@@ -1,12 +1,12 @@
 # SIMS Blue Ocean Screener Webマニュアル
 
-**対応バージョン：v0.14.15 Development / Operational Test**  
+**対応バージョン：v0.14.16 Development / Operational Test**  
 **標準AI：Claude**
 
 SIMS Blue Ocean Screener（BOS）は、Keyword Planner等から取得したキーワード候補を絞り込み、実SERPをClaudeで精査し、個人サイトが狙いやすい新規記事候補をGREEN / YELLOW / PALE PINKで整理するためのツールです。RED / BLOCKはSERP履歴には残しますが、記事候補一覧から除外します。既存サイトへの記事追加だけでなく、これから立ち上げる新規サイト専用の探索モードも利用できます。
 
 
-## v0.14.15 aCreator処理の順次表示
+## v0.14.16 aCreator処理の順次表示
 
 メニュー7のaCreator処理は、操作順を画面表示にも反映します。
 

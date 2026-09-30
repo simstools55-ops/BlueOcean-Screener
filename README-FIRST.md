@@ -1,6 +1,6 @@
-# SIMS Blue Ocean Screener v0.14.15
+# SIMS Blue Ocean Screener v0.14.16
 
-## v0.14.15 Claude SERP返却契約の強化
+## v0.14.16 Claude SERP返却契約の強化
 
 - Claude用ZIPへ `CLAUDE-INSTRUCTIONS.txt` と `SERP_REVIEW_RESULT_V2_SCHEMA.json` を追加。
 - 通常のSEO相談・記事案だけで終了せず、SERP精査と `SIMS_BOS_SERP_REVIEW_RESULT_V2` JSON返却を完了するよう明示。
