@@ -1,3 +1,31 @@
+## v0.14.23
+- 新規サイト探索をキーワード単位のブルーオーシャン探索としてUI整理。
+- GREEN / YELLOW候補1件からaCreatorへ進める新規サイト専用依頼文を追加。
+- 既存サイト用aCreator依頼文・カニバリ連携は変更なし。
+- 新規サイト適性・展開性・クラスター形成力等の将来用データ取得・保存ロジックは削除せず温存。
+- 新規サイトのaCreator進捗を新規サイト探索セッションへ保存するよう分岐。
+
+## v0.14.22
+- 「新規サイト用キーワード探索 → 5. 評価済み候補を確認」を軽量な閲覧専用処理へ変更。
+- Candidates表示時の不要な全体書式再適用、再ソート、Home集計更新を停止。
+- 候補データ・SERP評価ロジック・新規サイト探索フローは変更なし。
+
+## v0.14.21
+- 新規サイト探索の復元・SERP精査準備・次サイクル準備に待機オーバーレイと回転インジケーターを追加。
+- 処理中の二重クリックを抑止し、失敗時は待機表示を解除してエラーを表示。
+- v0.14.20の保存・再開・Claude ZIP状態復元を維持。
+
+## v0.14.20
+- Fixed a regression in the saved new-site discovery list where the resume button became unresponsive because the v0.14.19 inline completion UI introduced conflicting quotes in generated JavaScript.
+- Reworked the completion UI markup so the resume action executes normally while retaining restored SERP/package status.
+- Synchronized VERSION and product metadata to v0.14.20.
+
+## v0.14.19 - 2026-10-01
+- 保存済み新規サイト探索を選択後、復元完了UIが表示されない問題を修正。
+- 復元完了画面にSERP進捗とClaude ZIP作成状態を表示。
+- 復元後のSERP精査への直接導線を追加。
+- Code.gs先頭の製品バージョンコメントを現行版へ同期。
+
 ## v0.14.18 - 2026-10-01
 - 新規サイト探索の保存を単一スロットから複数ラン方式へ変更。
 - 保存済み探索一覧から任意の探索を選択して再開できるダイアログを追加。
