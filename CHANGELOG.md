@@ -1,3 +1,13 @@
+## v0.14.26
+- 新規サイトのaCreator対象をGREEN / YELLOWのみに統一。
+- F5/open時に判定列のみ軽量集計し、HomeのaCreator候補件数をGREEN+YELLOWへ同期。
+- PALE PINKおよび将来用の新規サイト適性データは温存。
+
+## v0.14.25
+- F5 / 再オープン時にHomeシートを自動表示。
+- 起動時は重いHome集計を行わず、新規サイト用Homeの静的ラベルと1〜7フローだけを軽量同期。
+- v0.14.24でコード更新済みでも既存Homeに旧ラベルが残る問題を解消。
+
 ## v0.14.24
 - 新規サイトHomeの旧「有望候補」を「aCreator候補」へ変更。
 - aCreator候補数をGREEN + YELLOWに統一し、PALE PINKは最終判定表示のみ維持。

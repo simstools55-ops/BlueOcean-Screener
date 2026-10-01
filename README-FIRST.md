@@ -1,4 +1,16 @@
-# SIMS Blue Ocean Screener v0.14.24
+# SIMS Blue Ocean Screener v0.14.26
+
+## v0.14.26 新規サイトaCreator候補をGREEN / YELLOWへ統一
+
+- 新規サイトのaCreator対象をGREEN / YELLOWのみに統一。
+- F5時はCandidatesの判定列だけを軽量集計し、HomeのaCreator候補件数を同期。
+- PALE PINK等の評価データ・将来用データは削除せず温存。
+
+## v0.14.25 F5 / 再オープン時のHome表示を統一
+- F5またはスプレッドシート再オープン時にHomeシートを自動表示。
+- 起動時は重い候補集計やHome全面再構築を行わず、版数と新規サイト用の静的ラベル・1〜7フローだけを軽量同期。
+- v0.14.24のコードが反映済みでも既存Homeに旧ラベルが残るケースを解消。
+- 将来用の新規サイト適性・展開性・クラスター形成力等の内部データ／ロジックは変更しない。
 
 ## v0.14.24 Home表示を現行の新規サイト探索フローへ同期
 - Homeの「有望候補」を「aCreator候補」へ変更し、GREEN + YELLOWのみを件数表示。

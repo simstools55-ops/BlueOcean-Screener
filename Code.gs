@@ -1,6 +1,8 @@
 /**
- * Blue Ocean Screener v0.14.24
+ * Blue Ocean Screener v0.14.26
  * Single-Code Apps Script distribution.
+ * v0.14.26: new-site aCreator eligibility is GREEN/YELLOW only; F5/open lightweight-syncs the GREEN+YELLOW count without full Home aggregation.
+ * v0.14.25: F5/open always activates Home and lightweight-syncs the current new-site Home labels/flow without running heavy summary aggregation.
  * v0.14.24: align new-site Home labels/counts/flow with the current keyword-screening workflow; future site-planning data remains preserved.
  * v0.14.23: enable new-site keyword candidates to hand off one GREEN/YELLOW keyword to aCreator while preserving future site-planning data.
  * v0.14.18: support multiple saved new-site discovery runs with selectable resume/delete.
@@ -30,11 +32,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.24
+ * Blue Ocean Screener v0.14.26
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.24';
+const SBOS_VERSION = '0.14.26';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -116,9 +118,9 @@ function sbosOpenNewSiteGreenCandidates() {
 
 
 function onOpen() {
-  // v0.9.9: 起動時は重い再構築を行わず、メニューと版数表示だけを更新する。
+  // v0.14.25: 起動時は重い集計・再構築を行わず、メニュー、Home静的表示、版数だけを同期する。
   sbosBuildMenu_();
-  try { sbosSyncHomeVersionOnly_(); } catch(e) { console.error(e); }
+  try { sbosSyncHomeOpenView_(); } catch(e) { console.error(e); }
 }
 
 function onInstall() {
@@ -129,6 +131,47 @@ function sbosSyncHomeVersionOnly_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.HOME);
   if (!sh) return;
   sh.getRange('D1').setValue('Version ' + SBOS_VERSION);
+}
+
+/**
+ * F5 / open 時の軽量Home同期。
+ * 候補集計やシート全面再構築は行わず、現行フローの静的ラベルだけを同期してHomeを表示する。
+ */
+function sbosSyncHomeOpenView_() {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName(SBOS_SHEETS.HOME);
+  if (!sh) return;
+
+  sh.getRange('D1').setValue('Version ' + SBOS_VERSION);
+
+  if (sbosIsNewSiteMode_()) {
+    sh.getRange('C7').setValue('SERP精査済み候補');
+    sh.getRange('G7').setValue('aCreator候補');
+    sh.getRange('E11').setValue('aCreator候補');
+    // v0.14.26: full Home集計は行わず、判定列だけを読んでGREEN+YELLOW件数を同期する。
+    const cand = ss.getSheetByName(SBOS_SHEETS.CANDIDATES);
+    let creatorEligible = 0;
+    if (cand && cand.getLastRow() >= 2) {
+      const statuses = cand.getRange(2,2,cand.getLastRow()-1,1).getDisplayValues();
+      statuses.forEach(r => { if (['GREEN','YELLOW'].includes(sbosStatusCode_(r[0]))) creatorEligible++; });
+    }
+    sh.getRange('H7').setValue(creatorEligible);
+    sh.getRange('F11').setValue(creatorEligible);
+    sh.getRange('A12').setValue('新規サイト用フロー');
+    sh.getRange('A13:H13').setValues([[
+      '1 新規サイト向け探索を開始',
+      '2 キーワードを読み込む',
+      '3 ブルーオーシャン候補を探す',
+      '4 SERP精査を進める',
+      '5 候補を確認する',
+      '6 aCreatorで処理',
+      '7 未完了の探索を再開',
+      ''
+    ]]);
+  }
+
+  ss.setActiveSheet(sh);
+  sh.setActiveSelection('A1');
 }
 
 
@@ -2389,7 +2432,7 @@ function sbosBuildSerpPackageReadme_(p) {
     'AIは色判定をせず reachable_band を TOP10 / TOP20 / TOP30 / OUT の4段階で返します。',
     '最終色はBOSが固定基準で判定します: TOP10 GREEN / TOP20 YELLOW / TOP30 PALE PINK / OUT RED。',
     '検索意図不成立・需要Signal不在などの強制停止条件だけ hard_block=true としてください。',
-    p.mode === SBOS_MODE.NEW_SITE ? '新規サイト探索モードではカニバリ精査・aCreator処理は行いません。' : 'GREEN / YELLOW / PALE PINKは後段のカニバリ精査を通過後、利用者判断でaCreatorへ進めます。'
+    p.mode === SBOS_MODE.NEW_SITE ? '新規サイト探索モードではカニバリ精査を行わず、GREEN / YELLOW候補から1件を選んでaCreatorへ進めます。' : 'GREEN / YELLOW / PALE PINKは後段のカニバリ精査を通過後、利用者判断でaCreatorへ進めます。'
   ].join('\n');
 }
 
@@ -3216,8 +3259,16 @@ const SBOS_CREATOR_BATCH_MAX = 1;
 
 function sbosIsCreatorEligibleStatus_(value) {
   const st = sbosStatusCode_(value);
+  // v0.14.26: 新規サイトでは記事化候補をGREEN / YELLOWに限定。
+  // PALE_PINK / TRYは既存サイト側の互換性のため温存する。
+  if (sbosIsNewSiteMode_()) return ['GREEN','YELLOW'].includes(st);
   return ['GREEN','YELLOW','PALE_PINK','TRY'].includes(st);
 }
+
+function sbosCreatorEligibleLabel_() {
+  return sbosIsNewSiteMode_() ? 'GREEN / YELLOW' : 'GREEN / YELLOW / PALE PINK';
+}
+
 
 function sbosGetCheckedCandidateRows_() {
   const sh = SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
@@ -3397,7 +3448,7 @@ function sbosFindCandidateRowByKeyword_(keyword) {
 function sbosSaveCreatorResponseFromDialog(keyword,responseText) {
   const h=sbosFindCandidateRowByKeyword_(keyword);
   if(!h)throw new Error('対象候補が見つかりません。');
-  if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('aCreator処理はGREEN / YELLOW / PALE PINK候補のみ対象です。');
+  if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('aCreator処理は'+sbosCreatorEligibleLabel_()+'候補のみ対象です。');
   const t=String(responseText||'').trim(); if(!t)throw new Error('aCreator回答全文を貼り付けてください。');
   const sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   sbosSaveCreatorResponse_(keyword,t); sh.getRange(h.row,11).setValue('作成済み'); sh.getRange(h.row,1).setValue(false);
@@ -3407,7 +3458,7 @@ function sbosSaveCreatorResponseFromDialog(keyword,responseText) {
 function sbosRegisterSbmResultFromCreatorDialog(keyword,articleId,publicUrl) {
   const h=sbosFindCandidateRowByKeyword_(keyword);
   if(!h)throw new Error('対象候補が見つかりません。');
-  if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('SIMS Manager登録はGREEN / YELLOW / PALE PINK候補のみ対象です。');
+  if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('SIMS Manager登録は'+sbosCreatorEligibleLabel_()+'候補のみ対象です。');
   const cs=String(h.values[10]||'');
   if(cs!=='作成済み'&&cs!=='SIMS Manager登録済み')throw new Error('先にaCreator回答を登録してください。');
   const aid=String(articleId||'').trim(); if(!aid)throw new Error('SIMS Manager Article IDを入力してください。');
@@ -3420,11 +3471,10 @@ function sbosRegisterSbmResultFromCreatorDialog(keyword,articleId,publicUrl) {
 function sbosShowCreatorWorkflowDialog() {
   sbosEnsureSheets_();
   const s=sbosGetCheckedCandidateRows_();
-  if(!s.length)throw new Error('CandidatesでaCreator処理するGREEN / YELLOW / PALE PINK候補を1件チェックしてください。');
+  if(!s.length)throw new Error('CandidatesでaCreator処理する'+sbosCreatorEligibleLabel_()+'候補を1件チェックしてください。');
   if(s.length!==1)throw new Error('aCreator処理は1件ずつ行います。チェックは1件だけにしてください。');
   const x=s[0];
-  if(!sbosIsCreatorEligibleStatus_(x.values[1]))throw new Error('aCreator処理はGREEN / YELLOW / PALE PINK候補のみ対象です。');
-  if(sbosIsNewSiteMode_() && !['GREEN','YELLOW'].includes(sbosStatusCode_(x.values[1]))) throw new Error('新規サイト向けaCreator処理はGREEN / YELLOW候補のみ対象です。');
+  if(!sbosIsCreatorEligibleStatus_(x.values[1]))throw new Error('aCreator処理は'+sbosCreatorEligibleLabel_()+'候補のみ対象です。');
   const kw=String(x.values[2]||''), sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   let cs=String(x.values[10]||'');
   if(!cs||cs==='未作成'){sh.getRange(x.row,11).setValue('依頼待ち');cs='依頼待ち';sbosSaveCreatorContext_();}
