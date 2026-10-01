@@ -1,6 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.23
+ * Blue Ocean Screener v0.14.24
  * Single-Code Apps Script distribution.
+ * v0.14.24: align new-site Home labels/counts/flow with the current keyword-screening workflow; future site-planning data remains preserved.
  * v0.14.23: enable new-site keyword candidates to hand off one GREEN/YELLOW keyword to aCreator while preserving future site-planning data.
  * v0.14.18: support multiple saved new-site discovery runs with selectable resume/delete.
  * v0.14.17: improve SERP package UI state and block package creation after stop condition.
@@ -29,11 +30,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.23
+ * Blue Ocean Screener v0.14.24
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.23';
+const SBOS_VERSION = '0.14.24';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -282,8 +283,8 @@ function sbosRefreshHomeSummary_() {
   if (sbosIsNewSiteMode_()) {
     home.getRange('C7').setValue('SERP精査済み候補');
     home.getRange('D7').setValue(green + yellow + palePink);
-    home.getRange('G7').setValue('有望候補');
-    home.getRange('H7').setValue(green + yellow + palePink);
+    home.getRange('G7').setValue('aCreator候補');
+    home.getRange('H7').setValue(green + yellow);
   } else {
     home.getRange('C7').setValue('カニバリ精査待ち');
     home.getRange('D7').setValue(cannibalWait);
@@ -307,14 +308,14 @@ function sbosRefreshHomeSummary_() {
     home.getRange('B11').setValue(total);
     home.getRange('C11').setValue('SERP精査待ち');
     home.getRange('D11').setValue(serpWait);
-    home.getRange('E11').setValue('有望候補');
-    home.getRange('F11').setValue(green + yellow + palePink);
+    home.getRange('E11').setValue('aCreator候補');
+    home.getRange('F11').setValue(green + yellow);
     home.getRange('G11').setValue('カニバリ');
     home.getRange('H11').setValue('実施しない');
 
     home.getRange('A12').setValue('新規サイト用フロー');
     home.getRange('A13:H13').setValues([[
-      '1 新規サイト向け探索','2 キーワード読込','3 候補探索','4 SERP精査','5 候補確認','6 aCreator','7 再開',''
+      '1 新規サイト向け探索を開始','2 キーワードを読み込む','3 ブルーオーシャン候補を探す','4 SERP精査を進める','5 候補を確認する','6 aCreatorで処理','7 未完了の探索を再開',''
     ]]);
     home.getRange('A16').setValue('判定の見方');
     home.getRange('A17:H17').setValues([[
@@ -345,9 +346,9 @@ function sbosRefreshHomeSummaryFast_() {
   home.getRange('E3').setValue(sbosGetState_('home_status_text')||'未実行');
   home.getRange('B5:J5').setValues([[total,'2語',two,'3語',three,'4語',existing4,'生成4語',generated4]]);
   home.getRange('B7').setValue(serpWait);
-  if(isNew){home.getRange('D7').setValue(green+yellow+palePink);home.getRange('H7').setValue(green+yellow+palePink);}else{home.getRange('D7').setValue(cannibalWait);home.getRange('H7').setValue(creatorUnqueued);}
+  if(isNew){home.getRange('D7').setValue(green+yellow+palePink);home.getRange('H7').setValue(green+yellow);}else{home.getRange('D7').setValue(cannibalWait);home.getRange('H7').setValue(creatorUnqueued);}
   home.getRange('B9:H9').setValues([[green,'YELLOW',yellow,'PALE PINK',palePink,'RED',red]]);
-  if(isNew){home.getRange('B11:H11').setValues([[total,'SERP精査待ち',serpWait,'有望候補',green+yellow+palePink,'カニバリ','実施しない']]);}
+  if(isNew){home.getRange('B11:H11').setValues([[total,'SERP精査待ち',serpWait,'aCreator候補',green+yellow,'カニバリ','実施しない']]);}
   else{home.getRange('B11:H11').setValues([[creatorUnqueued,'aCreator依頼キュー',creatorQueued,'aCreator処置済み',creatorDone,'SIMS Manager登録済み',sbmLinked]]);}
   const poolCount=sbosCandidatePoolCountForCurrentContext_();
   if(!isNew)home.getRange('A22').setValue('・Candidate Pool（'+sbosCandidatePoolContextLabel_()+'）：'+poolCount+'件。別サイトの候補は表示・再評価対象に含めません。');
@@ -3729,13 +3730,13 @@ function sbosEnsureLightweightHome_(force) {
     if (sbosIsNewSiteMode_()) {
       rows[1] = ['モード','','','対象サイト','','','','','',''];
       rows[5] = ['現在の候補状況','','','','','','','','',''];
-      rows[6] = ['SERP精査待ち',0,'SERP精査済み候補',0,'有望候補',0,'評価済み',0,'',''];
+      rows[6] = ['SERP精査待ち',0,'SERP精査済み候補',0,'aCreator候補',0,'評価済み',0,'',''];
       rows[7] = ['最終判定','','','','','','','','',''];
       rows[8] = ['GREEN',0,'YELLOW',0,'PALE PINK',0,'RED',0,'',''];
       rows[9] = ['新規サイト探索の進捗','','','','','','','','',''];
-      rows[10] = ['キーワード読込',0,'SERP精査待ち',0,'有望候補',0,'カニバリ','実施しない','',''];
+      rows[10] = ['キーワード読込',0,'SERP精査待ち',0,'aCreator候補',0,'カニバリ','実施しない','',''];
       rows[11] = ['新規サイト用フロー','','','','','','','','',''];
-      rows[12] = ['1 新規サイト向け探索','2 キーワード読込','3 候補探索','4 SERP精査','5 候補確認','6 aCreator','7 再開','','',''];
+      rows[12] = ['1 新規サイト向け探索を開始','2 キーワードを読み込む','3 ブルーオーシャン候補を探す','4 SERP精査を進める','5 候補を確認する','6 aCreatorで処理','7 未完了の探索を再開','','',''];
       rows[15] = ['判定の見方','','','','','','','','',''];
       rows[16] = ['GREEN：推定1〜10位','','YELLOW：推定11〜20位','','PALE PINK：推定21〜30位','','RED：31位以下','','',''];
       rows[18] = ['新規サイト探索メモ','','','','','','','','',''];
