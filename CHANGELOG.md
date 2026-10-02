@@ -1,3 +1,16 @@
+## v0.14.28
+- Split the Apps Script top menu into Existing Site, New Site, Settings/Management, and About BOS.
+- Place Candidate Pool / re-evaluation under both workflow menus while retaining context isolation.
+- Hide aCreator and SIMS Manager registration buttons after their respective steps are complete.
+- Remove remaining duplicate body headings from site-switch and new-site-resume dialogs.
+
+## v0.14.27
+- 新規サイト用aCreator依頼文のSERP Evidenceを記事作成向けに整理し、順位見込みの重複表現・アフィリエイト適性を引き渡し対象から除外。
+- 記事設計指示を検索意図・SERP分析・一次情報確認に基づく具体的な内容へ更新。
+- 主要ダイアログのタイトルバーと本文先頭見出しの重複を整理。
+- aCreatorダイアログ表示時のCandidates更新・セッション保存を停止し、回答登録時まで書き込みを遅延してちらつきを削減。
+- 元のSERP Evidence、既存サイト用aCreator依頼文、将来用データは保持。
+
 ## v0.14.26
 - 新規サイトのaCreator対象をGREEN / YELLOWのみに統一。
 - F5/open時に判定列のみ軽量集計し、HomeのaCreator候補件数をGREEN+YELLOWへ同期。

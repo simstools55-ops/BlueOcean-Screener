@@ -1,6 +1,8 @@
 /**
- * Blue Ocean Screener v0.14.26
+ * Blue Ocean Screener v0.14.28
  * Single-Code Apps Script distribution.
+ * v0.14.28: split top menus by workflow, hide completed registration buttons, and remove remaining duplicate dialog body headings.
+ * v0.14.27: refine new-site aCreator handoff text, remove duplicate dialog body headings, and keep dialog opening read-only to reduce sheet flicker.
  * v0.14.26: new-site aCreator eligibility is GREEN/YELLOW only; F5/open lightweight-syncs the GREEN+YELLOW count without full Home aggregation.
  * v0.14.25: F5/open always activates Home and lightweight-syncs the current new-site Home labels/flow without running heavy summary aggregation.
  * v0.14.24: align new-site Home labels/counts/flow with the current keyword-screening workflow; future site-planning data remains preserved.
@@ -32,11 +34,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.26
+ * Blue Ocean Screener v0.14.28
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.26';
+const SBOS_VERSION = '0.14.28';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -403,7 +405,10 @@ function sbosRefreshHomeSummaryFast_() {
 // ============================================================================
 function sbosBuildMenu_() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('Blue Ocean Screener')
+
+  // v0.14.28: purpose-first top menus. Shared internals stay shared, but UI actions
+  // live under the workflow where the user expects to find them.
+  ui.createMenu('既存サイト探索')
     .addItem('1. 対象サイトを設定・切り替える', 'sbosShowSiteSettings')
     .addItem('2. キーワードを読み込む', 'sbosShowDrivePicker')
     .addItem('3. ブルーオーシャン候補を探す', 'sbosStartScreening')
@@ -412,34 +417,33 @@ function sbosBuildMenu_() {
     .addItem('6. カニバリ精査を進める', 'sbosShowCannibalEvidencePicker')
     .addItem('7. GREEN / YELLOW / PALE PINK候補をaCreatorで処理', 'sbosShowCreatorWorkflowDialog')
     .addSeparator()
-    .addSubMenu(
-      ui.createMenu('保存済み候補・再評価')
-        .addItem('保存済み候補を見る', 'sbosOpenCandidatePool')
-        .addItem('選択候補を再評価', 'sbosReevaluateSelectedPoolCandidate')
-    )
+    .addItem('保存済み候補を見る', 'sbosOpenCandidatePool')
+    .addItem('選択候補を再評価', 'sbosReevaluateSelectedPoolCandidate')
+    .addItem('現在のサイトを保存する', 'sbosSaveCurrentBlogSessionManual')
+    .addToUi();
+
+  ui.createMenu('新規サイト探索')
+    .addItem('1. 新規サイト向け探索を開始', 'sbosStartNewSiteDiscoveryMode')
+    .addItem('2. キーワードを読み込む', 'sbosShowDrivePicker')
+    .addItem('3. ブルーオーシャン候補を探す', 'sbosStartScreening')
+    .addItem('4. SERP精査を進める', 'sbosShowSerpWorkflowDialog')
+    .addItem('5. 候補を確認する', 'sbosOpenNewSiteGreenCandidates')
+    .addItem('6. 選択した候補をaCreatorで処理', 'sbosShowCreatorWorkflowDialog')
+    .addItem('7. 未完了の探索を再開', 'sbosRestoreNewSiteDiscoveryManual')
     .addSeparator()
-    .addSubMenu(
-      ui.createMenu('新規サイト向けキーワード探索')
-        .addItem('1. 新規サイト向け探索を開始', 'sbosStartNewSiteDiscoveryMode')
-        .addItem('2. キーワードを読み込む', 'sbosShowDrivePicker')
-        .addItem('3. ブルーオーシャン候補を探す', 'sbosStartScreening')
-        .addItem('4. SERP精査を進める', 'sbosShowSerpWorkflowDialog')
-        .addItem('5. 候補を確認する', 'sbosOpenNewSiteGreenCandidates')
-        .addItem('6. 選択した候補をaCreatorで処理', 'sbosShowCreatorWorkflowDialog')
-        .addItem('7. 未完了の探索を再開', 'sbosRestoreNewSiteDiscoveryManual')
-    )
-    .addSubMenu(
-      ui.createMenu('途中から再開・特別操作')
-        .addItem('現在のサイトを保存する', 'sbosSaveCurrentBlogSessionManual')
-        .addItem('処理状態を確認する', 'sbosShowStatus')
-        .addItem('処理を再開する', 'sbosResumeBatch')
-    )
-    .addSubMenu(
-      ui.createMenu('設定・メンテナンス')
-        .addItem('保存先を設定する', 'sbosShowOutputSettings')
-        .addItem('画面・シートを再初期化する', 'sbosReinitializeUiManual')
-    )
+    .addItem('保存済み候補を見る', 'sbosOpenCandidatePool')
+    .addItem('選択候補を再評価', 'sbosReevaluateSelectedPoolCandidate')
+    .addToUi();
+
+  ui.createMenu('設定・管理')
+    .addItem('処理状態を確認する', 'sbosShowStatus')
+    .addItem('現在の処理を続ける', 'sbosResumeBatch')
     .addSeparator()
+    .addItem('保存先を設定する', 'sbosShowOutputSettings')
+    .addItem('画面・シートを再初期化する', 'sbosReinitializeUiManual')
+    .addToUi();
+
+  ui.createMenu('BOSについて')
     .addItem('この製品について', 'sbosAbout')
     .addToUi();
 }
@@ -485,7 +489,6 @@ function sbosShowSiteSettings() {
     '.working .btnspin{display:inline-block}.working .btnlabel{display:inline-block}@keyframes sbosSpin{to{transform:rotate(360deg)}}' +
     '.note{background:#f8fbff;border:1px solid #d2e3fc;border-radius:7px;padding:9px 11px;font-size:12px;line-height:1.5;margin-bottom:14px}' +
     '</style></head><body><div class="wrap">' +
-    '<div class="title">対象サイトを切り替える・再開する</div>' +
     '<div class="lead">サイトを切り替える前に、現在の Keywords・Candidates・SERP結果・aCreator/SIMS Manager進捗・処理状態を自動保存します。以前のサイトへ戻ると、保存地点から復元します。</div>' +
     '<div class="note">現在: <b>' + sbosEscapeHtml_(currentName || '未設定') + '</b>' +
       (currentUrl ? ' — ' + sbosEscapeHtml_(currentUrl) : '') + '</div>' +
@@ -984,7 +987,7 @@ function sbosShowNewSiteDiscoveryResumeDialog_() {
       (s.pending !== '' ? '・待ち ' + sbosEscapeHtml_(s.pending) + '件' : '');
     return '<div class="run" data-key="' + sbosEscapeHtml_(s.runKey) + '"><div class="nm">' + name + '</div><div class="meta">' + meta + '</div><div class="acts"><button class="open" onclick="resumeRun(this)">この探索を再開</button><button class="del" onclick="deleteRun(this)">削除</button></div></div>';
   }).join('');
-  const html = HtmlService.createHtmlOutput('<!doctype html><html><head><base target="_top"><style>body{font-family:Arial,sans-serif;margin:0;color:#202124}.wrap{padding:20px}.title{font-size:20px;font-weight:700;margin-bottom:8px}.lead{font-size:13px;color:#5f6368;line-height:1.6;margin-bottom:14px}.run{border:1px solid #dadce0;border-radius:9px;padding:13px;margin:10px 0}.nm{font-weight:700;font-size:14px;word-break:break-all}.meta{font-size:12px;color:#5f6368;margin-top:6px;line-height:1.5}.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}button{border:0;border-radius:6px;padding:8px 13px;font-weight:600;cursor:pointer}.open{background:#1a73e8;color:#fff}.del{background:#f1f3f4;color:#3c4043}.empty{padding:18px;background:#f8f9fa;border-radius:8px;color:#5f6368;font-size:13px}.st{font-size:12px;color:#5f6368;margin-top:12px;white-space:pre-wrap}.ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.94);z-index:9999;align-items:center;justify-content:center}.ov.on{display:flex}.ovbox{text-align:center;font-weight:700;color:#174ea6}.spin{width:44px;height:44px;border:5px solid #d2e3fc;border-top-color:#1a73e8;border-radius:50%;animation:rr .75s linear infinite;margin:0 auto 14px}@keyframes rr{to{transform:rotate(360deg)}}.ovsub{font-size:12px;font-weight:400;color:#5f6368;margin-top:7px}</style></head><body><div id="resumeOv" class="ov"><div class="ovbox"><div class="spin"></div><div id="resumeOvTitle">処理しています…</div><div id="resumeOvSub" class="ovsub">しばらくお待ちください。</div></div></div><div class="wrap"><div class="title">保存した新規サイト探索を再開</div><div class="lead">再開する探索を選んでください。不要になった保存データは削除できます。</div>' + (rows || '<div class="empty">保存済みの新規サイト探索はありません。</div>') + '<div id="st" class="st"></div></div><script>function keyOf(b){return b.closest(".run").dataset.key}function lock(on){document.querySelectorAll("button").forEach(b=>b.disabled=on)}function ov(on,title,sub){var o=document.getElementById("resumeOv");if(!o)return;document.getElementById("resumeOvTitle").textContent=title||"処理しています…";document.getElementById("resumeOvSub").textContent=sub||"しばらくお待ちください。";o.classList.toggle("on",!!on)}function resumeRun(b){lock(true);ov(true,"保存した探索を復元しています…","Keywords・Candidates・SERP結果・処理状態を復元しています。");document.getElementById("st").textContent="復元しています…";google.script.run.withSuccessHandler(r=>{ov(false);var pkg=r&&r.packageCreated?("<br><b>Claude ZIP:</b> 作成済み"+(r.packageFileName?"<br><span class=meta>"+esc(r.packageFileName)+"</span>":"")):"<br><b>Claude ZIP:</b> 未作成";document.querySelector(".wrap").innerHTML="<div class=title>新規サイト探索を再開しました</div><div class=run><div class=nm>"+esc((r&&r.inputFile)||"入力ファイル未記録")+"</div><div class=meta>状態: "+esc((r&&r.status)||"未記録")+" / SERP "+esc(r&&r.completedCycles)+"/5・GREEN+YELLOW "+esc(r&&r.yellowPlusTotal)+"/10・未依頼 "+esc(r&&r.pending)+"件</div>"+pkg+"</div><div class=acts><button id=serpNext class=open>4. SERP精査を進める</button><button id=closeResume>閉じる</button></div>";document.getElementById("serpNext").onclick=openSerp;document.getElementById("closeResume").onclick=function(){google.script.host.close()}}).withFailureHandler(e=>{ov(false);lock(false);document.getElementById("st").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRestoreNewSiteDiscoveryFromDialog(keyOf(b))}function esc(v){return String(v==null?"":v).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}function openSerp(){lock(true);ov(true,"SERP精査を準備しています…","候補と保存済みの精査状態を読み込んでいます。");google.script.run.withSuccessHandler(()=>{}).withFailureHandler(e=>{ov(false);lock(false);document.body.insertAdjacentHTML("beforeend","<div class=st>エラー: "+esc(e&&e.message?e.message:e)+"</div>")}).sbosShowSerpWorkflowDialog()}function deleteRun(b){if(!confirm("この保存済み探索を削除しますか？"))return;lock(true);google.script.run.withSuccessHandler(()=>{b.closest(".run").remove();lock(false);document.getElementById("st").textContent="削除しました。"}).withFailureHandler(e=>{lock(false);document.getElementById("st").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosDeleteNewSiteDiscovery(keyOf(b))}</script></body></html>').setWidth(650).setHeight(520);
+  const html = HtmlService.createHtmlOutput('<!doctype html><html><head><base target="_top"><style>body{font-family:Arial,sans-serif;margin:0;color:#202124}.wrap{padding:20px}.title{font-size:20px;font-weight:700;margin-bottom:8px}.lead{font-size:13px;color:#5f6368;line-height:1.6;margin-bottom:14px}.run{border:1px solid #dadce0;border-radius:9px;padding:13px;margin:10px 0}.nm{font-weight:700;font-size:14px;word-break:break-all}.meta{font-size:12px;color:#5f6368;margin-top:6px;line-height:1.5}.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}button{border:0;border-radius:6px;padding:8px 13px;font-weight:600;cursor:pointer}.open{background:#1a73e8;color:#fff}.del{background:#f1f3f4;color:#3c4043}.empty{padding:18px;background:#f8f9fa;border-radius:8px;color:#5f6368;font-size:13px}.st{font-size:12px;color:#5f6368;margin-top:12px;white-space:pre-wrap}.ov{display:none;position:fixed;inset:0;background:rgba(255,255,255,.94);z-index:9999;align-items:center;justify-content:center}.ov.on{display:flex}.ovbox{text-align:center;font-weight:700;color:#174ea6}.spin{width:44px;height:44px;border:5px solid #d2e3fc;border-top-color:#1a73e8;border-radius:50%;animation:rr .75s linear infinite;margin:0 auto 14px}@keyframes rr{to{transform:rotate(360deg)}}.ovsub{font-size:12px;font-weight:400;color:#5f6368;margin-top:7px}</style></head><body><div id="resumeOv" class="ov"><div class="ovbox"><div class="spin"></div><div id="resumeOvTitle">処理しています…</div><div id="resumeOvSub" class="ovsub">しばらくお待ちください。</div></div></div><div class="wrap"><div class="lead">再開する探索を選んでください。不要になった保存データは削除できます。</div>' + (rows || '<div class="empty">保存済みの新規サイト探索はありません。</div>') + '<div id="st" class="st"></div></div><script>function keyOf(b){return b.closest(".run").dataset.key}function lock(on){document.querySelectorAll("button").forEach(b=>b.disabled=on)}function ov(on,title,sub){var o=document.getElementById("resumeOv");if(!o)return;document.getElementById("resumeOvTitle").textContent=title||"処理しています…";document.getElementById("resumeOvSub").textContent=sub||"しばらくお待ちください。";o.classList.toggle("on",!!on)}function resumeRun(b){lock(true);ov(true,"保存した探索を復元しています…","Keywords・Candidates・SERP結果・処理状態を復元しています。");document.getElementById("st").textContent="復元しています…";google.script.run.withSuccessHandler(r=>{ov(false);var pkg=r&&r.packageCreated?("<br><b>Claude ZIP:</b> 作成済み"+(r.packageFileName?"<br><span class=meta>"+esc(r.packageFileName)+"</span>":"")):"<br><b>Claude ZIP:</b> 未作成";document.querySelector(".wrap").innerHTML="<div class=title>新規サイト探索を再開しました</div><div class=run><div class=nm>"+esc((r&&r.inputFile)||"入力ファイル未記録")+"</div><div class=meta>状態: "+esc((r&&r.status)||"未記録")+" / SERP "+esc(r&&r.completedCycles)+"/5・GREEN+YELLOW "+esc(r&&r.yellowPlusTotal)+"/10・未依頼 "+esc(r&&r.pending)+"件</div>"+pkg+"</div><div class=acts><button id=serpNext class=open>4. SERP精査を進める</button><button id=closeResume>閉じる</button></div>";document.getElementById("serpNext").onclick=openSerp;document.getElementById("closeResume").onclick=function(){google.script.host.close()}}).withFailureHandler(e=>{ov(false);lock(false);document.getElementById("st").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRestoreNewSiteDiscoveryFromDialog(keyOf(b))}function esc(v){return String(v==null?"":v).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}function openSerp(){lock(true);ov(true,"SERP精査を準備しています…","候補と保存済みの精査状態を読み込んでいます。");google.script.run.withSuccessHandler(()=>{}).withFailureHandler(e=>{ov(false);lock(false);document.body.insertAdjacentHTML("beforeend","<div class=st>エラー: "+esc(e&&e.message?e.message:e)+"</div>")}).sbosShowSerpWorkflowDialog()}function deleteRun(b){if(!confirm("この保存済み探索を削除しますか？"))return;lock(true);google.script.run.withSuccessHandler(()=>{b.closest(".run").remove();lock(false);document.getElementById("st").textContent="削除しました。"}).withFailureHandler(e=>{lock(false);document.getElementById("st").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosDeleteNewSiteDiscovery(keyOf(b))}</script></body></html>').setWidth(650).setHeight(520);
   SpreadsheetApp.getUi().showModalDialog(html, '保存した探索を再開');
 }
 
@@ -2338,7 +2341,7 @@ function sbosBuildSerpWorkflowHtml_(isNewSite, siteName, pending) {
     '<div id="overlayTitle">処理しています…</div>' +
     '<div id="overlaySub" class="ovsub">画面表示を更新しています。</div></div></div>' +
 
-    '<div class="w"><div class="t">5. SERP精査</div>' +
+    '<div class="w">' +
     '<div class="g">' + modeInfo +
     'SERP精査待ち: <b>' + Number(pending || 0) + '件</b><br>' +
     'サイクル: <b>' + progress.completedCycles + '/' + progress.maxCycles + ' 完了</b>　GREEN＋YELLOW: <b>' + progress.yellowPlusTotal + '/' + progress.target + '件</b><br>' +
@@ -2631,7 +2634,7 @@ function sbosShowResultPasteDialog_(kind) {
     'textarea{width:100%;height:330px;box-sizing:border-box;border:1px solid #dadce0;border-radius:8px;padding:12px;font-family:monospace;font-size:12px;resize:vertical}' +
     '.msg{min-height:20px;margin-top:8px;color:#5f6368;white-space:pre-wrap}.foot{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}' +
     'button{border:0;border-radius:6px;padding:10px 16px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.primary{background:#1a73e8;color:#fff}.secondary{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}' +
-    '</style></head><body><div class="wrap"><h2>' + sbosEscapeHtml_(title) + '</h2>' +
+    '</style></head><body><div class="wrap">' +
     '<div class="guide">' + sbosEscapeHtml_(guide) + '</div>' +
     '<textarea id="answer" placeholder="ここへAIの回答全文を貼り付け"></textarea><div id="msg" class="msg"></div>' +
     '<div class="foot"><button class="secondary" onclick="google.script.host.close()">閉じる</button><button id="next" class="primary" style="display:none" onclick="nextStep(this)"><span class="sp"></span><span class="tx">' + nextLabel + '</span></button><button id="go" class="primary" onclick="submitAnswer(this)"><span class="sp"></span><span class="tx">登録する</span></button></div></div>' +
@@ -3322,7 +3325,7 @@ function sbosShowSelectedCreatorReferrals() {
   const text=parts.join('\n\n');
 
   const html = HtmlService.createHtmlOutput(
-    '<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.wrap{padding:18px}textarea{width:100%;height:390px;box-sizing:border-box;padding:10px;border:1px solid #dadce0;border-radius:6px;font-size:12px;line-height:1.45}.msg{min-height:18px;margin-top:8px;color:#188038;font-size:12px}.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:#fff}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}</style></head><body><div class="wrap"><h2>aCreator依頼文 1件</h2><p>選択した1案件の依頼文です。aCreatorではこの1記事を処理します。</p><textarea id="t">'+sbosEscapeHtml_(text)+'</textarea><div id="msg" class="msg"></div><div class="foot"><button class="p" onclick="copy(this)"><span class="sp"></span><span class="tx">全文をコピー</span></button><button class="p" onclick="done(this)"><span class="sp"></span><span class="tx">選択案件をaCreator処置済みにする</span></button><button class="s" onclick="google.script.host.close()">閉じる</button></div></div><script>function w(b,on,label){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=label||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}async function copy(b){w(b,true,"コピー中…");const t=document.getElementById("t");let ok=true;try{await navigator.clipboard.writeText(t.value)}catch(e){try{t.select();ok=document.execCommand("copy")}catch(z){ok=false}}w(b,false);if(ok){b.querySelector(".tx").textContent="✓ コピーしました";document.getElementById("msg").textContent="✓ aCreator依頼文をクリップボードへコピーしました。";setTimeout(()=>b.querySelector(".tx").textContent="全文をコピー",2200)}else{document.getElementById("msg").textContent="コピーできませんでした。テキスト欄を選択して手動でコピーしてください。"}}function done(b){w(b,true,"処理中…");document.getElementById("msg").textContent="aCreator処置済みとして記録しています…";google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(e=>{w(b,false);document.getElementById("msg").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosMarkSelectedCreatorCasesDone();}</script></body></html>'
+    '<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.wrap{padding:18px}textarea{width:100%;height:390px;box-sizing:border-box;padding:10px;border:1px solid #dadce0;border-radius:6px;font-size:12px;line-height:1.45}.msg{min-height:18px;margin-top:8px;color:#188038;font-size:12px}.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:#fff}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}</style></head><body><div class="wrap"><p>選択した1案件の依頼文です。aCreatorではこの1記事を処理します。</p><textarea id="t">'+sbosEscapeHtml_(text)+'</textarea><div id="msg" class="msg"></div><div class="foot"><button class="p" onclick="copy(this)"><span class="sp"></span><span class="tx">全文をコピー</span></button><button class="p" onclick="done(this)"><span class="sp"></span><span class="tx">選択案件をaCreator処置済みにする</span></button><button class="s" onclick="google.script.host.close()">閉じる</button></div></div><script>function w(b,on,label){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=label||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}async function copy(b){w(b,true,"コピー中…");const t=document.getElementById("t");let ok=true;try{await navigator.clipboard.writeText(t.value)}catch(e){try{t.select();ok=document.execCommand("copy")}catch(z){ok=false}}w(b,false);if(ok){b.querySelector(".tx").textContent="✓ コピーしました";document.getElementById("msg").textContent="✓ aCreator依頼文をクリップボードへコピーしました。";setTimeout(()=>b.querySelector(".tx").textContent="全文をコピー",2200)}else{document.getElementById("msg").textContent="コピーできませんでした。テキスト欄を選択して手動でコピーしてください。"}}function done(b){w(b,true,"処理中…");document.getElementById("msg").textContent="aCreator処置済みとして記録しています…";google.script.run.withSuccessHandler(()=>google.script.host.close()).withFailureHandler(e=>{w(b,false);document.getElementById("msg").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosMarkSelectedCreatorCasesDone();}</script></body></html>'
   ).setWidth(820).setHeight(620);
   SpreadsheetApp.getUi().showModalDialog(html,'7. aCreator依頼文を表示する');
 }
@@ -3368,7 +3371,19 @@ function sbosSaveCreatorContext_() {
   return sbosIsNewSiteMode_() ? sbosSaveNewSiteDiscovery_() : sbosSaveCurrentBlogSession_();
 }
 
+function sbosCreatorEvidenceForNewSite_(raw) {
+  // v0.14.27: preserve the stored SERP evidence, but pass only observation/evidence to aCreator.
+  // Reachability is already conveyed by the final grade/band, and monetization fit is outside this handoff.
+  return String(raw || '')
+    .replace(/をまとめた最新記事なら(?:10|トップ10|TOP10)位?以内の余地(?:は)?[^。]*。?/gi, 'をまとめた情報が競合に不足している。')
+    .replace(/(?:最新記事なら)?(?:10|トップ10|TOP10)位?以内の余地(?:は)?[^。]*。?/gi, '')
+    .replace(/アフィリエイト(?:導線)?との相性(?:も)?[^。]*。?/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function sbosBuildNewSiteCreatorReferral_(v) {
+  const evidence = sbosCreatorEvidenceForNewSite_(v[8]);
   return [
     '# aCreator 新記事作成依頼','',
     '## メインキーワード', v[2],'',
@@ -3376,9 +3391,9 @@ function sbosBuildNewSiteCreatorReferral_(v) {
     '## Blue Ocean Score', v[5],'',
     '## 最終判定', v[1] + ' / 到達見込み帯: ' + (v[27] || '未記録'),'',
     '## 検索意図', v[7],'',
-    '## SERP分析・Blue Ocean Evidence', v[8],'',
+    '## SERP分析・Blue Ocean Evidence', evidence,'',
     '## 記事で満たすべき検索意図',
-    'このキーワード固有の検索意図に集中し、検索者がこの1記事で疑問を解決できる新規記事として設計してください。','',
+    '上記の検索意図とSERP分析を基に、このキーワード固有の疑問を1記事で解決できる記事を設計してください。競合に不足している情報は、最新の一次情報で事実確認したうえで補完してください。','',
     '## 事実確認',
     '仕様・不具合・手順・価格・発売状況などは執筆時点の一次情報を優先してWeb確認し、未確認情報を断定しないでください。','',
     '## aCreatorへの指示',
@@ -3469,7 +3484,6 @@ function sbosRegisterSbmResultFromCreatorDialog(keyword,articleId,publicUrl) {
   return {ok:true,articleId:aid,url:url};
 }
 function sbosShowCreatorWorkflowDialog() {
-  sbosEnsureSheets_();
   const s=sbosGetCheckedCandidateRows_();
   if(!s.length)throw new Error('CandidatesでaCreator処理する'+sbosCreatorEligibleLabel_()+'候補を1件チェックしてください。');
   if(s.length!==1)throw new Error('aCreator処理は1件ずつ行います。チェックは1件だけにしてください。');
@@ -3477,15 +3491,16 @@ function sbosShowCreatorWorkflowDialog() {
   if(!sbosIsCreatorEligibleStatus_(x.values[1]))throw new Error('aCreator処理は'+sbosCreatorEligibleLabel_()+'候補のみ対象です。');
   const kw=String(x.values[2]||''), sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   let cs=String(x.values[10]||'');
-  if(!cs||cs==='未作成'){sh.getRange(x.row,11).setValue('依頼待ち');cs='依頼待ち';sbosSaveCreatorContext_();}
+  // v0.14.27: opening the dialog is read-only. Persist only after the user registers aCreator output.
+  if(!cs||cs==='未作成') cs='依頼待ち';
   const ref=sbosIsNewSiteMode_()?sbosBuildNewSiteCreatorReferral_(x.values):sbosBuildCreatorReferral_(x.values), saved=sbosGetCreatorResponse_(kw), resp=saved&&saved.response?saved.response:'', aid=String(x.values[13]||''), url=String(x.values[14]||'');
   const html=HtmlService.createHtmlOutput(
-    '<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.w{padding:18px}.t{font-size:20px;font-weight:700}.m{background:#e8f0fe;padding:10px;border-radius:8px;line-height:1.55;margin-top:8px}.b{border:1px solid #dadce0;border-radius:8px;padding:12px;margin-top:12px}.l{font-weight:700;margin-bottom:7px}textarea{width:100%;box-sizing:border-box;border:1px solid #dadce0;border-radius:7px;padding:10px;font-family:monospace;font-size:12px}#ref{height:205px}#ans{height:180px}input{width:100%;box-sizing:border-box;padding:9px;border:1px solid #dadce0;border-radius:6px;margin:4px 0 8px}.a{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:white}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:white;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}.st{background:#f8fafd;padding:8px;border-radius:6px;margin-top:7px;font-size:12px;white-space:pre-wrap}</style></head><body><div class="w"><div class="t">'+(sbosIsNewSiteMode_()?'6. 選択した候補をaCreatorで処理':'7. GREEN / YELLOW / PALE PINK候補をaCreator処理')+'</div><div class="m"><b>キーワード:</b> '+sbosEscapeHtml_(kw)+'<br><b>Score:</b> '+sbosEscapeHtml_(x.values[5])+(sbosIsNewSiteMode_()?'':' / <b>カニバリ:</b> '+sbosEscapeHtml_(x.values[6]))+'<br><b>状態:</b> '+sbosEscapeHtml_(cs)+'</div>' +
+    '<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.w{padding:18px}.t{font-size:20px;font-weight:700}.m{background:#e8f0fe;padding:10px;border-radius:8px;line-height:1.55;margin-top:8px}.b{border:1px solid #dadce0;border-radius:8px;padding:12px;margin-top:12px}.l{font-weight:700;margin-bottom:7px}textarea{width:100%;box-sizing:border-box;border:1px solid #dadce0;border-radius:7px;padding:10px;font-family:monospace;font-size:12px}#ref{height:205px}#ans{height:180px}input{width:100%;box-sizing:border-box;padding:9px;border:1px solid #dadce0;border-radius:6px;margin:4px 0 8px}.a{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:white}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:white;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}.st{background:#f8fafd;padding:8px;border-radius:6px;margin-top:7px;font-size:12px;white-space:pre-wrap}</style></head><body><div class="w"><div class="m"><b>キーワード:</b> '+sbosEscapeHtml_(kw)+'<br><b>Score:</b> '+sbosEscapeHtml_(x.values[5])+(sbosIsNewSiteMode_()?'':' / <b>カニバリ:</b> '+sbosEscapeHtml_(x.values[6]))+'<br><b>状態:</b> '+sbosEscapeHtml_(cs)+'</div>' +
     '<div class="b"><div class="l">① aCreator依頼文</div><textarea id="ref" readonly>'+sbosEscapeHtml_(ref)+'</textarea><div class="a"><button class="p" onclick="copyRef(this)"><span class="sp"></span><span class="tx">依頼文をコピー</span></button></div></div>' +
-    '<div class="b"><div class="l">② aCreator回答全文</div><textarea id="ans" placeholder="aCreator回答全文を貼り付け">'+sbosEscapeHtml_(resp)+'</textarea><div id="cst" class="st">'+(resp?'保存済みのaCreator回答があります。':'回答待ち')+'</div><div class="a"><button class="p" onclick="saveC(this)"><span class="sp"></span><span class="tx">aCreator回答を登録</span></button></div></div>' +
+    '<div class="b"><div class="l">② aCreator回答全文</div><textarea id="ans" placeholder="aCreator回答全文を貼り付け">'+sbosEscapeHtml_(resp)+'</textarea><div id="cst" class="st">'+(resp?'保存済みのaCreator回答があります。':'回答待ち')+'</div><div class="a"><button id="saveCreatorBtn" class="p" style="display:'+(resp?'none':'inline-flex')+'" onclick="saveC(this)"><span class="sp"></span><span class="tx">aCreator回答を登録</span></button></div></div>' +
     '<div id="mgrGuide" class="m" style="display:'+(resp?'block':'none')+';margin-top:12px"><b>次の操作: SIMS Managerへ新記事を登録</b><br>aCreatorで作成した新記事をSIMS Managerへ登録し、発行された <b>Article ID（Axxxxxx）</b> を確認してください。<br>Article IDを取得したら、下の③でSIMS Managerへの登録結果をBOSへ記録します。公開URLは公開済みの場合だけ入力してください。</div>' +
-    '<div id="sbmBox" class="b" style="display:'+(resp?'block':'none')+'"><div class="l">③ SIMS Managerへの登録結果を記録</div><input id="aid" placeholder="Article ID 例: A900001" value="'+sbosEscapeHtml_(aid)+'"><input id="url" placeholder="公開URL（公開済みの場合。未公開なら空欄可）" value="'+sbosEscapeHtml_(url)+'"><div id="sst" class="st">'+(aid?'SIMS Manager登録済み: '+sbosEscapeHtml_(aid):'SIMS Managerで新記事を登録し、発行されたArticle ID（Axxxxxx）を入力してください。')+'</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button class="p" onclick="saveS(this)"><span class="sp"></span><span class="tx">SIMS Manager登録結果を記録</span></button></div></div>' +
-    '<script>const kw='+JSON.stringify(kw)+';function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}function showSbmStep(){document.getElementById("mgrGuide").style.display="block";document.getElementById("sbmBox").style.display="block";}async function copyRef(b){w(b,true,"コピー中…");const t=document.getElementById("ref");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}w(b,false);b.querySelector(".tx").textContent="✓ コピーしました";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}function saveC(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("cst").textContent="aCreator回答全文を貼り付けてください。";return;}w(b,true,"処理中…");document.getElementById("cst").textContent="登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("cst").textContent="aCreator回答を登録しました。状態: "+r.state+"\\n次にSIMS Managerへ新記事を登録し、Article ID（Axxxxxx）を取得してください。";showSbmStep();document.getElementById("aid").focus();}).withFailureHandler(e=>{w(b,false);document.getElementById("cst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosSaveCreatorResponseFromDialog(kw,t)}function saveS(b){const aid=document.getElementById("aid").value.trim();if(!/^A\\d{6}$/i.test(aid)){document.getElementById("sst").textContent="Article IDは Axxxxxx 形式（例: A900001）で入力してください。";return;}w(b,true,"処理中…");document.getElementById("sst").textContent="記録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("sst").textContent="SIMS Manager登録済み: "+r.articleId}).withFailureHandler(e=>{w(b,false);document.getElementById("sst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterSbmResultFromCreatorDialog(kw,aid,document.getElementById("url").value)}</script></div></body></html>'
+    '<div id="sbmBox" class="b" style="display:'+(resp?'block':'none')+'"><div class="l">③ SIMS Managerへの登録結果を記録</div><input id="aid" placeholder="Article ID 例: A900001" value="'+sbosEscapeHtml_(aid)+'"><input id="url" placeholder="公開URL（公開済みの場合。未公開なら空欄可）" value="'+sbosEscapeHtml_(url)+'"><div id="sst" class="st">'+(aid?'SIMS Manager登録済み: '+sbosEscapeHtml_(aid):'SIMS Managerで新記事を登録し、発行されたArticle ID（Axxxxxx）を入力してください。')+'</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="saveSbmBtn" class="p" style="display:'+(aid?'none':'inline-flex')+'" onclick="saveS(this)"><span class="sp"></span><span class="tx">SIMS Manager登録結果を記録</span></button></div></div>' +
+    '<script>const kw='+JSON.stringify(kw)+';function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}function showSbmStep(){document.getElementById("mgrGuide").style.display="block";document.getElementById("sbmBox").style.display="block";}async function copyRef(b){w(b,true,"コピー中…");const t=document.getElementById("ref");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}w(b,false);b.querySelector(".tx").textContent="✓ コピーしました";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}function saveC(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("cst").textContent="aCreator回答全文を貼り付けてください。";return;}w(b,true,"処理中…");document.getElementById("cst").textContent="登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("cst").textContent="aCreator回答を登録しました。状態: "+r.state+"\\n次にSIMS Managerへ新記事を登録し、Article ID（Axxxxxx）を取得してください。";b.style.display="none";showSbmStep();document.getElementById("aid").focus();}).withFailureHandler(e=>{w(b,false);document.getElementById("cst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosSaveCreatorResponseFromDialog(kw,t)}function saveS(b){const aid=document.getElementById("aid").value.trim();if(!/^A\\d{6}$/i.test(aid)){document.getElementById("sst").textContent="Article IDは Axxxxxx 形式（例: A900001）で入力してください。";return;}w(b,true,"処理中…");document.getElementById("sst").textContent="記録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("sst").textContent="SIMS Manager登録済み: "+r.articleId;b.style.display="none"}).withFailureHandler(e=>{w(b,false);document.getElementById("sst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterSbmResultFromCreatorDialog(kw,aid,document.getElementById("url").value)}</script></div></body></html>'
   ).setWidth(820).setHeight(760);
   SpreadsheetApp.getUi().showModalDialog(html,sbosIsNewSiteMode_()?'6. 選択した候補をaCreatorで処理':'7. GREEN / YELLOW / PALE PINK候補をaCreator処理');
 }
@@ -4154,7 +4169,7 @@ function sbosGetSelectedPoolCandidate_(){
 function sbosReevaluationRequestText_(keyword,requestId){return ['# SIMS BOS 保存済み候補 SERP再評価','', '対象キーワード: '+keyword,'request_id: '+requestId,'','現在のWeb検索でこのキーワードを調査し、実在確認できた検索結果だけを返してください。','最低'+SBOS_THRESHOLDS.SERP_CHECK_DEPTH+'件を目安に serp_evidence へ格納し、checked_countは実数を返してください。','Googleの厳密な順位を取得できない場合はrankを推測しないでください。架空URL・サイト内検索URLによる穴埋めは禁止です。','AIはGREEN/YELLOW/PALE PINK/REDを決めず、reachable_band = TOP10 / TOP20 / TOP30 / OUT を返してください。','独立した検索意図が成立しない、需要Signalが確認できない等の強制停止条件がある場合だけ hard_block=true としてください。','','回答末尾に SIMS_BOS_SERP_REVIEW_RESULT_V2 の完全JSONを ```json``` で出力してください。resultsはこの1件だけです。','必要フィールド: main_keyword, checked_count, serp_evidence[{title,url,rank?,site_type,weakness_or_strength}], reachable_band, confidence_percent, hard_block, block_reason, blue_ocean_score, search_intent, evidence_summary, exact_or_near_exact_competitors, big_site_pressure, intent_gap, personal_blog_chance, suggested_four_word_queries, sources','', '判定基準はSIMS側で固定: TOP10 GREEN / TOP20 YELLOW / TOP30 PALE PINK / OUT RED / hard_block=true はBLOCK'].join('\n');}
 function sbosShowCandidatePoolReevaluationDialog(){
   sbosEnsureSheets_();const selected=sbosGetSelectedPoolCandidate_(),kw=String(selected.values[2]||''),risk=sbosPreCannibalCheckForKeyword_(kw),requestId='SBOS-REEVAL-'+Utilities.formatDate(new Date(),Session.getScriptTimeZone()||'Asia/Tokyo','yyyyMMdd-HHmmss');sbosSetState_('reeval_request_id',requestId);sbosSetState_('reeval_keyword',kw);const req=sbosReevaluationRequestText_(kw,requestId);
-  const html=HtmlService.createHtmlOutput('<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.w{padding:18px}.t{font-size:20px;font-weight:700}.m{background:#e8f0fe;padding:10px;border-radius:8px;line-height:1.55;margin:10px 0}textarea{width:100%;box-sizing:border-box;border:1px solid #dadce0;border-radius:7px;padding:10px;font-family:monospace;font-size:12px}#req{height:220px}#ans{height:220px}.a{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:#fff}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}.st{background:#f8fafd;padding:8px;border-radius:6px;margin-top:7px;white-space:pre-wrap}</style></head><body><div class="w"><div class="t">保存済み候補を再評価</div><div class="m"><b>キーワード:</b> '+sbosEscapeHtml_(kw)+'<br><b>事前カニバリ:</b> '+sbosEscapeHtml_(risk.risk)+'<br>実在確認できた検索証拠で再評価します。</div><textarea id="req" readonly>'+sbosEscapeHtml_(req)+'</textarea><div class="a"><button id="cp" class="p" onclick="copyReq(this)"><span class="sp"></span><span class="tx">依頼文をコピー</span></button></div><div id="cst" class="st"></div><textarea id="ans" placeholder="Claudeの回答全文を貼り付け"></textarea><div id="st" class="st">回答待ち</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="go" class="p" onclick="reg(this)"><span class="sp"></span><span class="tx">再評価結果を登録</span></button></div><script>function w(b,on,label){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=label||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}async function copyReq(b){w(b,true,"コピー中…");const t=document.getElementById("req");let ok=true;try{await navigator.clipboard.writeText(t.value)}catch(e){try{t.select();ok=document.execCommand("copy")}catch(z){ok=false}}w(b,false);if(ok){b.querySelector(".tx").textContent="✓ コピーしました";document.getElementById("cst").textContent="✓ 依頼文をコピーしました。Claudeへ貼り付けてください。";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}else{document.getElementById("cst").textContent="コピーできませんでした。手動でコピーしてください。"}}function reg(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("st").textContent="回答全文を貼り付けてください。";return}w(b,true,"登録中…");document.getElementById("st").textContent="再評価結果を検証・登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);b.querySelector(".tx").textContent="✓ 登録完了";document.getElementById("st").textContent="再評価: "+r.grade+" / 到達見込み帯 "+r.reachableBand+"\n"+(r.creatorEligible?"次はカニバリ精査後、aCreatorへ進めます。":"aCreator対象外です。")}).withFailureHandler(e=>{w(b,false);document.getElementById("st").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterPoolReevaluation(document.getElementById("ans").value)}</script></div></body></html>').setWidth(820).setHeight(720);SpreadsheetApp.getUi().showModalDialog(html,'保存済み候補・再評価');
+  const html=HtmlService.createHtmlOutput('<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.w{padding:18px}.t{font-size:20px;font-weight:700}.m{background:#e8f0fe;padding:10px;border-radius:8px;line-height:1.55;margin:10px 0}textarea{width:100%;box-sizing:border-box;border:1px solid #dadce0;border-radius:7px;padding:10px;font-family:monospace;font-size:12px}#req{height:220px}#ans{height:220px}.a{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:#fff}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}.st{background:#f8fafd;padding:8px;border-radius:6px;margin-top:7px;white-space:pre-wrap}</style></head><body><div class="w"><div class="m"><b>キーワード:</b> '+sbosEscapeHtml_(kw)+'<br><b>事前カニバリ:</b> '+sbosEscapeHtml_(risk.risk)+'<br>実在確認できた検索証拠で再評価します。</div><textarea id="req" readonly>'+sbosEscapeHtml_(req)+'</textarea><div class="a"><button id="cp" class="p" onclick="copyReq(this)"><span class="sp"></span><span class="tx">依頼文をコピー</span></button></div><div id="cst" class="st"></div><textarea id="ans" placeholder="Claudeの回答全文を貼り付け"></textarea><div id="st" class="st">回答待ち</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="go" class="p" onclick="reg(this)"><span class="sp"></span><span class="tx">再評価結果を登録</span></button></div><script>function w(b,on,label){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=label||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}async function copyReq(b){w(b,true,"コピー中…");const t=document.getElementById("req");let ok=true;try{await navigator.clipboard.writeText(t.value)}catch(e){try{t.select();ok=document.execCommand("copy")}catch(z){ok=false}}w(b,false);if(ok){b.querySelector(".tx").textContent="✓ コピーしました";document.getElementById("cst").textContent="✓ 依頼文をコピーしました。Claudeへ貼り付けてください。";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}else{document.getElementById("cst").textContent="コピーできませんでした。手動でコピーしてください。"}}function reg(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("st").textContent="回答全文を貼り付けてください。";return}w(b,true,"登録中…");document.getElementById("st").textContent="再評価結果を検証・登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);b.querySelector(".tx").textContent="✓ 登録完了";document.getElementById("st").textContent="再評価: "+r.grade+" / 到達見込み帯 "+r.reachableBand+"\n"+(r.creatorEligible?"次はカニバリ精査後、aCreatorへ進めます。":"aCreator対象外です。")}).withFailureHandler(e=>{w(b,false);document.getElementById("st").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterPoolReevaluation(document.getElementById("ans").value)}</script></div></body></html>').setWidth(820).setHeight(720);SpreadsheetApp.getUi().showModalDialog(html,'保存済み候補・再評価');
 }
 function sbosRegisterPoolReevaluation(rawText){
   const payload=sbosExtractContractJsonFromText_(rawText,'SIMS_BOS_SERP_REVIEW_RESULT_V2'),requestId=sbosGetState_('reeval_request_id')||'',kw=sbosGetState_('reeval_keyword')||'';
