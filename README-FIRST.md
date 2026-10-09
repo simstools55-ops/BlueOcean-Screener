@@ -1,4 +1,4 @@
-# SIMS Blue Ocean Screener v0.14.29
+# SIMS Blue Ocean Screener v0.14.30
 
 ## v0.14.29 メニュー再編成・完了済み操作の整理
 - 上部メニューを「既存サイト探索」「新規サイト探索」「設定・管理」「BOSについて」に横分割しました。

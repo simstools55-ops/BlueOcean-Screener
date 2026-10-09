@@ -1,1 +1,1 @@
-fix(bos): validate aCreator output and format internal link candidates (v0.14.29)
+fix(bos): recover blocked aCreator cases and prevent premature registration (v0.14.30)

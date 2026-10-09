@@ -1,6 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.29
+ * Blue Ocean Screener v0.14.30
  * Single-Code Apps Script distribution.
+ * v0.14.30: preserve blocked Creator replies as 資料待ち, repair legacy states, and gate public-information alternatives for re-evaluation.
  * v0.14.29: validate aCreator completion and format internal link objects.
  * v0.14.28: split top menus by workflow, hide completed registration buttons, and remove remaining duplicate dialog body headings.
  * v0.14.27: refine new-site aCreator handoff text, remove duplicate dialog body headings, and keep dialog opening read-only to reduce sheet flicker.
@@ -438,6 +439,7 @@ function sbosBuildMenu_() {
 
   ui.createMenu('設定・管理')
     .addItem('処理状態を確認する', 'sbosShowStatus')
+    .addItem('選択案件のaCreator状態を再判定', 'sbosRepairSelectedCreatorState')
     .addItem('現在の処理を続ける', 'sbosResumeBatch')
     .addSeparator()
     .addItem('保存先を設定する', 'sbosShowOutputSettings')
@@ -3469,30 +3471,57 @@ function sbosFindCandidateRowByKeyword_(keyword) {
   for(let i=0;i<vals.length;i++) if(sbosKeywordMatchKey_(vals[i][2])===key) return {row:i+2,values:vals[i]};
   return null;
 }
+function sbosCreatorReplyState_(responseText) {
+  const t=String(responseText||'').trim();
+  if(!t) return {state:'未作成',reason:'回答なし'};
+  // Structured gate takes precedence over explanatory prose and heading syntax.
+  const gate=t.match(/["']?publication_gate["']?\s*:\s*\{[\s\S]{0,1800}?["']?status["']?\s*:\s*["']?(BLOCKED|FAILED|ERROR|PASS|READY|APPROVED)["']?/i);
+  if(gate && /^(BLOCKED|FAILED|ERROR)$/i.test(gate[1])) return {state:'資料待ち',reason:'publication_gate: '+gate[1].toUpperCase()};
+  if(/(?:publication_gate|公開判定)[^\n]{0,100}(?:BLOCKED|FAILED|ERROR)|(?:執筆に着手せず|実機データ待ち|記事本文は未生成|記事を執筆できない)/i.test(t.slice(0,5000))) return {state:'資料待ち',reason:'本文未生成・着手条件不足'};
+  if(/["']?body_html["']?\s*:\s*null\b/i.test(t)) return {state:'資料待ち',reason:'body_htmlがnull'};
+  if(t.length<300 || !/(?:^|\n)\s*#{1,3}\s*\S+|<h[1-3]\b|<article\b|<p\b|(?:^|\n)\s*(?:記事本文|完成記事)\s*[:：]/im.test(t)) return {state:'要確認',reason:'完成記事本文を確認できない'};
+  return {state:'作成済み',reason:'本文形式を検出（公開品質は未審査）'};
+}
 function sbosValidateCreatorResponse_(responseText) {
-  const t = String(responseText || '').trim();
-  if (!t) throw new Error('aCreator回答全文を貼り付けてください。');
-  const head = t.slice(0, 2500);
-  if (/(?:^|\n)\s*(?:#{1,6}\s*)?(?:status|result|判定|処理結果)\s*[:：]\s*(?:BLOCKED|FAILED|ERROR|失敗|作成不可)/im.test(head) || /(?:^|\n)\s*(?:#{1,6}\s*)?(?:BLOCKED|作成不可|記事作成を中止)(?:\s|$|[:：])/im.test(head)) throw new Error('aCreator回答がBLOCKEDまたは失敗を示しています。作成済みには登録できません。');
-  if (t.length < 300 || !/(?:^|\n)\s*#{1,3}\s*\S+|<h[1-3]\b|<article\b|<p\b|(?:^|\n)\s*(?:記事本文|完成記事)\s*[:：]/im.test(t)) throw new Error('完成記事の本文を確認できません。aCreator回答全文を確認してください。');
+  const t=String(responseText||'').trim();
+  if(!t) throw new Error('aCreator回答全文を貼り付けてください。');
   return t;
 }
 function sbosSaveCreatorResponseFromDialog(keyword,responseText) {
   const h=sbosFindCandidateRowByKeyword_(keyword);
   if(!h)throw new Error('対象候補が見つかりません。');
   if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('aCreator処理は'+sbosCreatorEligibleLabel_()+'候補のみ対象です。');
-  const t=sbosValidateCreatorResponse_(responseText);
+  const t=sbosValidateCreatorResponse_(responseText), assessment=sbosCreatorReplyState_(t);
   const sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
-  sbosSaveCreatorResponse_(keyword,t); sh.getRange(h.row,11).setValue('作成済み'); sh.getRange(h.row,1).setValue(false);
+  if(String(h.values[13]||'').trim() && assessment.state!=='作成済み') throw new Error('SIMS Manager登録済み案件です。登録内容を先に確認してください。');
+  sbosSaveCreatorResponse_(keyword,t); sh.getRange(h.row,11).setValue(assessment.state); sh.getRange(h.row,1).setValue(false);
   sbosApplyCandidateFormatting_(); sbosSaveCreatorContext_();
-  return {ok:true,state:'作成済み'};
+  return {ok:true,state:assessment.state,reason:assessment.reason,ready:assessment.state==='作成済み'};
+}
+/** Legacy records: only repair the checked candidate, never alter article IDs or the saved answer. */
+function sbosRepairSelectedCreatorState() {
+  const selected=sbosGetCheckedCandidateRows_();
+  if(selected.length!==1)throw new Error('Candidatesで再判定する候補を1件だけチェックしてください。');
+  const x=selected[0],kw=String(x.values[2]||''),saved=sbosGetCreatorResponse_(kw);
+  if(!saved||!saved.response)throw new Error('保存済みaCreator回答がありません。回答の再登録が必要です。');
+  if(String(x.values[13]||'').trim())throw new Error('Article ID登録済みのため自動修復しません。');
+  const a=sbosCreatorReplyState_(saved.response),old=String(x.values[10]||'');
+  const ui=SpreadsheetApp.getUi();
+  if(old===a.state){ui.alert('状態確認','状態は既に「'+a.state+'」です。',ui.ButtonSet.OK);return {old:old,state:a.state,changed:false};}
+  const answer=ui.alert('aCreator状態の再判定','キーワード: '+kw+'\n現在: '+old+' → 再判定: '+a.state+'\n理由: '+a.reason+'\n保存済み回答は保持します。変更しますか？',ui.ButtonSet.YES_NO);
+  if(answer!==ui.Button.YES)return {old:old,state:old,changed:false};
+  const sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
+  sh.getRange(x.row,11).setValue(a.state);sh.getRange(x.row,1).setValue(false);
+  sbosApplyCandidateFormatting_();sbosSaveCreatorContext_();
+  ui.alert('再判定完了','状態: '+a.state+'\n元のGREEN判定・SERP根拠は変更していません。公開情報型への企画変更には再評価が必要です。',ui.ButtonSet.OK);
+  return {old:old,state:a.state,changed:true};
 }
 function sbosRegisterSbmResultFromCreatorDialog(keyword,articleId,publicUrl) {
   const h=sbosFindCandidateRowByKeyword_(keyword);
   if(!h)throw new Error('対象候補が見つかりません。');
   if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('SIMS Manager登録は'+sbosCreatorEligibleLabel_()+'候補のみ対象です。');
   const cs=String(h.values[10]||'');
-  if(cs!=='作成済み'&&cs!=='SIMS Manager登録済み')throw new Error('先にaCreator回答を登録してください。');
+  if(cs!=='作成済み'&&cs!=='SIMS Manager登録済み')throw new Error('記事が未完成です（状態: '+cs+'）。SIMS Managerへは登録できません。');
   const aid=String(articleId||'').trim(); if(!aid)throw new Error('SIMS Manager Article IDを入力してください。');
   if(!/^A\d{6}$/i.test(aid))throw new Error('Article IDは Axxxxxx 形式（例: A900001）で入力してください。');
   const url=String(publicUrl||'').trim(), sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
@@ -3510,14 +3539,14 @@ function sbosShowCreatorWorkflowDialog() {
   let cs=String(x.values[10]||'');
   // v0.14.27: opening the dialog is read-only. Persist only after the user registers aCreator output.
   if(!cs||cs==='未作成') cs='依頼待ち';
-  const ref=sbosIsNewSiteMode_()?sbosBuildNewSiteCreatorReferral_(x.values):sbosBuildCreatorReferral_(x.values), saved=sbosGetCreatorResponse_(kw), resp=saved&&saved.response?saved.response:'', aid=String(x.values[13]||''), url=String(x.values[14]||'');
+  const ref=sbosIsNewSiteMode_()?sbosBuildNewSiteCreatorReferral_(x.values):sbosBuildCreatorReferral_(x.values), saved=sbosGetCreatorResponse_(kw), resp=saved&&saved.response?saved.response:'', aid=String(x.values[13]||''), url=String(x.values[14]||''), creatorReady=(cs==='作成済み'||cs==='SIMS Manager登録済み');
   const html=HtmlService.createHtmlOutput(
     '<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.w{padding:18px}.t{font-size:20px;font-weight:700}.m{background:#e8f0fe;padding:10px;border-radius:8px;line-height:1.55;margin-top:8px}.b{border:1px solid #dadce0;border-radius:8px;padding:12px;margin-top:12px}.l{font-weight:700;margin-bottom:7px}textarea{width:100%;box-sizing:border-box;border:1px solid #dadce0;border-radius:7px;padding:10px;font-family:monospace;font-size:12px}#ref{height:205px}#ans{height:180px}input{width:100%;box-sizing:border-box;padding:9px;border:1px solid #dadce0;border-radius:6px;margin:4px 0 8px}.a{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:white}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:white;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}.st{background:#f8fafd;padding:8px;border-radius:6px;margin-top:7px;font-size:12px;white-space:pre-wrap}</style></head><body><div class="w"><div class="m"><b>キーワード:</b> '+sbosEscapeHtml_(kw)+'<br><b>Score:</b> '+sbosEscapeHtml_(x.values[5])+(sbosIsNewSiteMode_()?'':' / <b>カニバリ:</b> '+sbosEscapeHtml_(x.values[6]))+'<br><b>状態:</b> '+sbosEscapeHtml_(cs)+'</div>' +
     '<div class="b"><div class="l">① aCreator依頼文</div><textarea id="ref" readonly>'+sbosEscapeHtml_(ref)+'</textarea><div class="a"><button class="p" onclick="copyRef(this)"><span class="sp"></span><span class="tx">依頼文をコピー</span></button></div></div>' +
-    '<div class="b"><div class="l">② aCreator回答全文</div><textarea id="ans" placeholder="aCreator回答全文を貼り付け">'+sbosEscapeHtml_(resp)+'</textarea><div id="cst" class="st">'+(resp?'保存済みのaCreator回答があります。':'回答待ち')+'</div><div class="a"><button id="saveCreatorBtn" class="p" style="display:'+(resp?'none':'inline-flex')+'" onclick="saveC(this)"><span class="sp"></span><span class="tx">aCreator回答を登録</span></button></div></div>' +
-    '<div id="mgrGuide" class="m" style="display:'+(resp?'block':'none')+';margin-top:12px"><b>次の操作: SIMS Managerへ新記事を登録</b><br>aCreatorで作成した新記事をSIMS Managerへ登録し、発行された <b>Article ID（Axxxxxx）</b> を確認してください。<br>Article IDを取得したら、下の③でSIMS Managerへの登録結果をBOSへ記録します。公開URLは公開済みの場合だけ入力してください。</div>' +
-    '<div id="sbmBox" class="b" style="display:'+(resp?'block':'none')+'"><div class="l">③ SIMS Managerへの登録結果を記録</div><input id="aid" placeholder="Article ID 例: A900001" value="'+sbosEscapeHtml_(aid)+'"><input id="url" placeholder="公開URL（公開済みの場合。未公開なら空欄可）" value="'+sbosEscapeHtml_(url)+'"><div id="sst" class="st">'+(aid?'SIMS Manager登録済み: '+sbosEscapeHtml_(aid):'SIMS Managerで新記事を登録し、発行されたArticle ID（Axxxxxx）を入力してください。')+'</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="saveSbmBtn" class="p" style="display:'+(aid?'none':'inline-flex')+'" onclick="saveS(this)"><span class="sp"></span><span class="tx">SIMS Manager登録結果を記録</span></button></div></div>' +
-    '<script>const kw='+JSON.stringify(kw)+';function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}function showSbmStep(){document.getElementById("mgrGuide").style.display="block";document.getElementById("sbmBox").style.display="block";}async function copyRef(b){w(b,true,"コピー中…");const t=document.getElementById("ref");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}w(b,false);b.querySelector(".tx").textContent="✓ コピーしました";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}function saveC(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("cst").textContent="aCreator回答全文を貼り付けてください。";return;}w(b,true,"処理中…");document.getElementById("cst").textContent="登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("cst").textContent="aCreator回答を登録しました。状態: "+r.state+"\\n次にSIMS Managerへ新記事を登録し、Article ID（Axxxxxx）を取得してください。";b.style.display="none";showSbmStep();document.getElementById("aid").focus();}).withFailureHandler(e=>{w(b,false);document.getElementById("cst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosSaveCreatorResponseFromDialog(kw,t)}function saveS(b){const aid=document.getElementById("aid").value.trim();if(!/^A\\d{6}$/i.test(aid)){document.getElementById("sst").textContent="Article IDは Axxxxxx 形式（例: A900001）で入力してください。";return;}w(b,true,"処理中…");document.getElementById("sst").textContent="記録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("sst").textContent="SIMS Manager登録済み: "+r.articleId;b.style.display="none"}).withFailureHandler(e=>{w(b,false);document.getElementById("sst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterSbmResultFromCreatorDialog(kw,aid,document.getElementById("url").value)}</script></div></body></html>'
+    '<div class="b"><div class="l">② aCreator回答全文</div><textarea id="ans" placeholder="aCreator回答全文を貼り付け">'+sbosEscapeHtml_(resp)+'</textarea><div id="cst" class="st">'+(resp?'保存済み回答があります。状態: '+sbosEscapeHtml_(cs)+'。必要に応じて回答を修正し再登録できます。':'回答待ち')+'</div><div class="a"><button id="saveCreatorBtn" class="p" style="display:'+(creatorReady?'none':'inline-flex')+'" onclick="saveC(this)"><span class="sp"></span><span class="tx">aCreator回答を登録</span></button></div></div>' +
+    '<div id="mgrGuide" class="m" style="display:'+(creatorReady?'block':'none')+';margin-top:12px"><b>次の操作: SIMS Managerへ新記事を登録</b><br>aCreatorで作成した新記事をSIMS Managerへ登録し、発行された <b>Article ID（Axxxxxx）</b> を確認してください。<br>Article IDを取得したら、下の③でSIMS Managerへの登録結果をBOSへ記録します。公開URLは公開済みの場合だけ入力してください。</div>' +
+    '<div id="sbmBox" class="b" style="display:'+(creatorReady?'block':'none')+'"><div class="l">③ SIMS Managerへの登録結果を記録</div><input id="aid" placeholder="Article ID 例: A900001" value="'+sbosEscapeHtml_(aid)+'"><input id="url" placeholder="公開URL（公開済みの場合。未公開なら空欄可）" value="'+sbosEscapeHtml_(url)+'"><div id="sst" class="st">'+(aid?'SIMS Manager登録済み: '+sbosEscapeHtml_(aid):'SIMS Managerで新記事を登録し、発行されたArticle ID（Axxxxxx）を入力してください。')+'</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="saveSbmBtn" class="p" style="display:'+(aid?'none':'inline-flex')+'" onclick="saveS(this)"><span class="sp"></span><span class="tx">SIMS Manager登録結果を記録</span></button></div></div>' +
+    '<script>const kw='+JSON.stringify(kw)+';function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}function showSbmStep(){document.getElementById("mgrGuide").style.display="block";document.getElementById("sbmBox").style.display="block";}async function copyRef(b){w(b,true,"コピー中…");const t=document.getElementById("ref");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}w(b,false);b.querySelector(".tx").textContent="✓ コピーしました";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}function saveC(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("cst").textContent="aCreator回答全文を貼り付けてください。";return;}w(b,true,"処理中…");document.getElementById("cst").textContent="登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("cst").textContent="aCreator回答を登録しました。状態: "+r.state+"\\n"+(r.ready?"次にSIMS Managerへ新記事を登録してください。":"記事は未完成です。公開情報型へ変更する場合はSERP・カニバリを再評価してください。");if(r.ready){b.style.display="none";showSbmStep();document.getElementById("aid").focus();}}).withFailureHandler(e=>{w(b,false);document.getElementById("cst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosSaveCreatorResponseFromDialog(kw,t)}function saveS(b){const aid=document.getElementById("aid").value.trim();if(!/^A\\d{6}$/i.test(aid)){document.getElementById("sst").textContent="Article IDは Axxxxxx 形式（例: A900001）で入力してください。";return;}w(b,true,"処理中…");document.getElementById("sst").textContent="記録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("sst").textContent="SIMS Manager登録済み: "+r.articleId;b.style.display="none"}).withFailureHandler(e=>{w(b,false);document.getElementById("sst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterSbmResultFromCreatorDialog(kw,aid,document.getElementById("url").value)}</script></div></body></html>'
   ).setWidth(820).setHeight(760);
   SpreadsheetApp.getUi().showModalDialog(html,sbosIsNewSiteMode_()?'6. 選択した候補をaCreatorで処理':'7. GREEN / YELLOW / PALE PINK候補をaCreator処理');
 }
