@@ -1,3 +1,20 @@
+# v0.14.34
+- aCreator登録ダイアログのJSONのみ貼付案内を明確化（保存ロジック変更なし）。
+
+# v0.14.33
+- Fix alternative review registration dialog: public Apps Script handlers and JS newline escaping.
+
+## v0.14.32
+- Claudeの代替企画再評価回答全文・推奨処置・日時を別管理で保存。
+- 既存記事改善の場合はManager向け依頼文を生成。旧判定・aCreator状態を変更せずSERP検証を必須とする。
+- バージョン表示とRepositoryメタデータを同期。
+
+## v0.14.31
+- 実機データ・実体験に依存する可能性があるaCreator案件に事前確認を追加。
+- 独自データなしの場合、公開情報型の代替企画に関するClaude再評価依頼文を表示。
+- 代替企画は未評価扱いとし、SERP/カニバリ再評価前のaCreator送信や状態更新はしない。
+- 実行時バージョン定数と先頭コメントをv0.14.31に同期。
+
 ## v0.14.29
 - aCreator内部リンク候補のオブジェクトを読みやすいテキストに整形。
 - aCreatorのBLOCKED/FAILED/ERROR応答や記事本文がない応答を作成済みとして登録しない。

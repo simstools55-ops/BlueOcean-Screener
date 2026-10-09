@@ -1,1 +1,1 @@
-fix(bos): recover blocked aCreator cases and prevent premature registration (v0.14.30)
+docs(bos): clarify JSON-only aCreator response registration (v0.14.34)
