@@ -1,6 +1,6 @@
-# SIMS Blue Ocean Screener v0.14.34
+# SIMS Blue Ocean Screener v0.14.35
 
-## v0.14.34 再評価回答の登録
+## v0.14.35 再評価回答の登録
 - 設定・管理から候補を選び、Claude回答全文と推奨処置を保存します。旧GREEN/Score/aCreator状態は保持します。
 - 既存記事改善を選択すると、Manager向けの改善検討依頼文を表示できます（自動登録はしません）。
 - Claude回答の保存はGoogle SERPの検証完了を意味しません。

@@ -1,7 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.34
+ * Blue Ocean Screener v0.14.35
  * Single-Code Apps Script distribution.
- * v0.14.34: clarify JSON-only Creator paste guidance without changing persistence or status logic.
+ * v0.14.35: validate Creator article JSON and protect legacy learning records in the dialog.
  * v0.14.33: register public-information alternative review separately from original SERP and Creator status.
  * v0.14.31: add evidence preflight and public-information alternative brief before Creator handoff.
  * v0.14.30: preserve blocked Creator replies as 資料待ち, repair legacy states, and gate public-information alternatives for re-evaluation.
@@ -39,11 +39,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.34
+ * Blue Ocean Screener v0.14.35
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.34';
+const SBOS_VERSION = '0.14.35';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -3475,20 +3475,38 @@ function sbosFindCandidateRowByKeyword_(keyword) {
   for(let i=0;i<vals.length;i++) if(sbosKeywordMatchKey_(vals[i][2])===key) return {row:i+2,values:vals[i]};
   return null;
 }
-function sbosCreatorReplyState_(responseText) {
+/** Distinguish aCreator article results from separate learning/diagnostic records. */
+function sbosCreatorPayloadInfo_(responseText) {
   const t=String(responseText||'').trim();
-  if(!t) return {state:'未作成',reason:'回答なし'};
-  // Structured gate takes precedence over explanatory prose and heading syntax.
-  const gate=t.match(/["']?publication_gate["']?\s*:\s*\{[\s\S]{0,1800}?["']?status["']?\s*:\s*["']?(BLOCKED|FAILED|ERROR|PASS|READY|APPROVED)["']?/i);
-  if(gate && /^(BLOCKED|FAILED|ERROR)$/i.test(gate[1])) return {state:'資料待ち',reason:'publication_gate: '+gate[1].toUpperCase()};
-  if(/(?:publication_gate|公開判定)[^\n]{0,100}(?:BLOCKED|FAILED|ERROR)|(?:執筆に着手せず|実機データ待ち|記事本文は未生成|記事を執筆できない)/i.test(t.slice(0,5000))) return {state:'資料待ち',reason:'本文未生成・着手条件不足'};
-  if(/["']?body_html["']?\s*:\s*null\b/i.test(t)) return {state:'資料待ち',reason:'body_htmlがnull'};
-  if(t.length<300 || !/(?:^|\n)\s*#{1,3}\s*\S+|<h[1-3]\b|<article\b|<p\b|(?:^|\n)\s*(?:記事本文|完成記事)\s*[:：]/im.test(t)) return {state:'要確認',reason:'完成記事本文を確認できない'};
-  return {state:'作成済み',reason:'本文形式を検出（公開品質は未審査）'};
+  if(!t)return {kind:'empty',reason:'回答未登録'};
+  let obj;
+  try {obj=JSON.parse(t);}catch(e){return {kind:'invalid',reason:'JSONとして解析できません。{ から } までのJSONのみを貼り付けてください。'};}
+  if(!obj||typeof obj!=='object'||Array.isArray(obj))return {kind:'invalid',reason:'記事作成結果のJSONオブジェクトではありません。'};
+  const fmt=String(obj.format||'');
+  if(/LEARNING_RECORD|LEARNING|DIAGNOSIS/i.test(fmt))return {kind:'learning',reason:'学習・診断記録（'+fmt+'）は記事作成回答ではありません。'};
+  if(obj.article_context&&obj.system_evaluation&&obj.human_review)return {kind:'learning',reason:'学習・評価記録は記事作成回答ではありません。'};
+  const a=obj.article;
+  const hasArticle=!!(a&&typeof a==='object'&&!Array.isArray(a));
+  const hasGate=!!(obj.publication_gate&&typeof obj.publication_gate==='object');
+  if(!hasArticle&&!hasGate)return {kind:'invalid',reason:'記事データ（article）または公開判定（publication_gate）がありません。'};
+  return {kind:'article',reason:'記事作成結果JSON'};
+}
+function sbosCreatorReplyState_(responseText) {
+  const info=sbosCreatorPayloadInfo_(responseText);
+  if(info.kind==='empty')return {state:'未作成',reason:info.reason};
+  if(info.kind!=='article')return {state:'要確認',reason:info.reason};
+  const obj=JSON.parse(String(responseText).trim());
+  const gate=String((obj.publication_gate&&obj.publication_gate.status)||'').toUpperCase();
+  if(['BLOCKED','FAILED','ERROR'].indexOf(gate)>=0)return {state:'資料待ち',reason:'publication_gate: '+gate};
+  const article=obj.article||{};
+  const body=typeof article.body_html==='string'?article.body_html:(typeof article.body_markdown==='string'?article.body_markdown:(typeof article.body==='string'?article.body:''));
+  if(!body.trim())return {state:'要確認',reason:'記事本文を確認できません（article.body_html等が未設定）'};
+  return {state:'作成済み',reason:'記事本文を検出（公開品質は未審査）'};
 }
 function sbosValidateCreatorResponse_(responseText) {
-  const t=String(responseText||'').trim();
-  if(!t) throw new Error('aCreator回答のJSON部分を省略せず貼り付けてください。');
+  const t=String(responseText||'').trim(),info=sbosCreatorPayloadInfo_(t);
+  if(info.kind!=='article')throw new Error(info.reason+' 学習記録ではなくaCreatorの記事作成結果JSONを貼り付けてください。');
+  if(t.length>49000)throw new Error('JSONが1セルの文字数制限に近づいています。保存できません。');
   return t;
 }
 function sbosSaveCreatorResponseFromDialog(keyword,responseText) {
@@ -3662,14 +3680,14 @@ function sbosShowCreatorWorkflowDialog() {
   let cs=String(x.values[10]||'');
   // v0.14.27: opening the dialog is read-only. Persist only after the user registers aCreator output.
   if(!cs||cs==='未作成') cs='依頼待ち';
-  const ref=sbosIsNewSiteMode_()?sbosBuildNewSiteCreatorReferral_(x.values):sbosBuildCreatorReferral_(x.values), saved=sbosGetCreatorResponse_(kw), resp=saved&&saved.response?saved.response:'', aid=String(x.values[13]||''), url=String(x.values[14]||''), creatorReady=(cs==='作成済み'||cs==='SIMS Manager登録済み');
+  const ref=sbosIsNewSiteMode_()?sbosBuildNewSiteCreatorReferral_(x.values):sbosBuildCreatorReferral_(x.values), saved=sbosGetCreatorResponse_(kw), savedText=saved&&saved.response?String(saved.response):'', savedInfo=sbosCreatorPayloadInfo_(savedText), validSaved=savedInfo.kind==='article', resp=validSaved?savedText:'', aid=String(x.values[13]||''), url=String(x.values[14]||''), creatorReady=(cs==='作成済み'||cs==='SIMS Manager登録済み'), savedNotice=savedInfo.kind==='learning'?'以前登録された学習記録を検出しました。記事作成回答ではないため入力欄には表示しません。元データは保持しています。正しいaCreator記事作成結果JSONを登録してください。':savedInfo.kind==='invalid'?'保存済みデータは記事作成結果JSONとして確認できません（'+savedInfo.reason+'）。元データは保持しています。正しい回答を登録してください。':validSaved?'記事作成結果JSONを保存済み（保存日時: '+String(saved.saved_at||'不明')+'）。現在の状態: '+cs+'。再登録するとこのキーワードの回答を上書きします。':'記事作成回答は未登録です。aCreatorへの依頼後、記事作成結果JSONを貼り付けてください。';
   const html=HtmlService.createHtmlOutput(
     '<!doctype html><html><head><base target="_top"><style>body{font-family:Arial;margin:0;color:#202124}.w{padding:18px}.t{font-size:20px;font-weight:700}.m{background:#e8f0fe;padding:10px;border-radius:8px;line-height:1.55;margin-top:8px}.b{border:1px solid #dadce0;border-radius:8px;padding:12px;margin-top:12px}.l{font-weight:700;margin-bottom:7px}textarea{width:100%;box-sizing:border-box;border:1px solid #dadce0;border-radius:7px;padding:10px;font-family:monospace;font-size:12px}#ref{height:205px}#ans{height:180px}input{width:100%;box-sizing:border-box;padding:9px;border:1px solid #dadce0;border-radius:6px;margin:4px 0 8px}.a{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}button{border:0;border-radius:6px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px}.p{background:#1a73e8;color:white}.s{background:#f1f3f4}.sp{display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,.45);border-top-color:white;border-radius:50%;animation:r .75s linear infinite}.working .sp{display:inline-block}@keyframes r{to{transform:rotate(360deg)}}.st{background:#f8fafd;padding:8px;border-radius:6px;margin-top:7px;font-size:12px;white-space:pre-wrap}</style></head><body><div class="w"><div class="m"><b>キーワード:</b> '+sbosEscapeHtml_(kw)+'<br><b>Score:</b> '+sbosEscapeHtml_(x.values[5])+(sbosIsNewSiteMode_()?'':' / <b>カニバリ:</b> '+sbosEscapeHtml_(x.values[6]))+'<br><b>状態:</b> '+sbosEscapeHtml_(cs)+'</div>' +
     '<div class="b"><div class="l">① aCreator依頼文</div><textarea id="ref" readonly>'+sbosEscapeHtml_(ref)+'</textarea><div class="a"><button class="p" onclick="copyRef(this)"><span class="sp"></span><span class="tx">依頼文をコピー</span></button></div></div>' +
-    '<div class="b"><div class="l">② aCreator回答（JSONのみ）</div><div style="font-size:12px;line-height:1.6;margin:4px 0 8px">aCreator回答のJSON部分（{ から } まで）だけを省略せず貼り付けてください。前後の説明文・Sources・```json 等の囲み記号は不要です。※1セル50,000文字の制限があります。JSONのみでも超過する場合は登録できません。</div><textarea id="ans" placeholder="aCreator回答のJSONのみを貼り付け">'+sbosEscapeHtml_(resp)+'</textarea><div id="cst" class="st">'+(resp?'保存済み回答があります。状態: '+sbosEscapeHtml_(cs)+'。必要に応じて回答を修正し再登録できます。':'回答待ち')+'</div><div class="a"><button id="saveCreatorBtn" class="p" style="display:'+(creatorReady?'none':'inline-flex')+'" onclick="saveC(this)"><span class="sp"></span><span class="tx">aCreator回答を登録</span></button></div></div>' +
+    '<div class="b"><div class="l">② aCreator回答（JSONのみ）</div><div style="font-size:12px;line-height:1.6;margin:4px 0 8px">aCreator回答のJSON部分（{ から } まで）だけを省略せず貼り付けてください。前後の説明文・Sources・```json 等の囲み記号は不要です。※1セル50,000文字の制限があります。JSONのみでも超過する場合は登録できません。</div><textarea id="ans" placeholder="aCreator回答のJSONのみを貼り付け">'+sbosEscapeHtml_(resp)+'</textarea><div id="cst" class="st">'+sbosEscapeHtml_(savedNotice)+'</div><div class="a"><button id="saveCreatorBtn" class="p" style="display:'+(creatorReady?'none':'inline-flex')+'" onclick="saveC(this)"><span class="sp"></span><span class="tx">aCreator回答を登録</span></button></div></div>' +
     '<div id="mgrGuide" class="m" style="display:'+(creatorReady?'block':'none')+';margin-top:12px"><b>次の操作: SIMS Managerへ新記事を登録</b><br>aCreatorで作成した新記事をSIMS Managerへ登録し、発行された <b>Article ID（Axxxxxx）</b> を確認してください。<br>Article IDを取得したら、下の③でSIMS Managerへの登録結果をBOSへ記録します。公開URLは公開済みの場合だけ入力してください。</div>' +
     '<div id="sbmBox" class="b" style="display:'+(creatorReady?'block':'none')+'"><div class="l">③ SIMS Managerへの登録結果を記録</div><input id="aid" placeholder="Article ID 例: A900001" value="'+sbosEscapeHtml_(aid)+'"><input id="url" placeholder="公開URL（公開済みの場合。未公開なら空欄可）" value="'+sbosEscapeHtml_(url)+'"><div id="sst" class="st">'+(aid?'SIMS Manager登録済み: '+sbosEscapeHtml_(aid):'SIMS Managerで新記事を登録し、発行されたArticle ID（Axxxxxx）を入力してください。')+'</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="saveSbmBtn" class="p" style="display:'+(aid?'none':'inline-flex')+'" onclick="saveS(this)"><span class="sp"></span><span class="tx">SIMS Manager登録結果を記録</span></button></div></div>' +
-    '<script>const kw='+JSON.stringify(kw)+';function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}function showSbmStep(){document.getElementById("mgrGuide").style.display="block";document.getElementById("sbmBox").style.display="block";}async function copyRef(b){w(b,true,"コピー中…");const t=document.getElementById("ref");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}w(b,false);b.querySelector(".tx").textContent="✓ コピーしました";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}function saveC(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("cst").textContent="aCreator回答のJSON部分を貼り付けてください。";return;}w(b,true,"処理中…");document.getElementById("cst").textContent="登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("cst").textContent="aCreator回答を登録しました。状態: "+r.state+"\\n"+(r.ready?"次にSIMS Managerへ新記事を登録してください。":"記事は未完成です。公開情報型へ変更する場合はSERP・カニバリを再評価してください。");if(r.ready){b.style.display="none";showSbmStep();document.getElementById("aid").focus();}}).withFailureHandler(e=>{w(b,false);document.getElementById("cst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosSaveCreatorResponseFromDialog(kw,t)}function saveS(b){const aid=document.getElementById("aid").value.trim();if(!/^A\\d{6}$/i.test(aid)){document.getElementById("sst").textContent="Article IDは Axxxxxx 形式（例: A900001）で入力してください。";return;}w(b,true,"処理中…");document.getElementById("sst").textContent="記録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("sst").textContent="SIMS Manager登録済み: "+r.articleId;b.style.display="none"}).withFailureHandler(e=>{w(b,false);document.getElementById("sst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterSbmResultFromCreatorDialog(kw,aid,document.getElementById("url").value)}</script></div></body></html>'
+    '<script>const kw='+JSON.stringify(kw)+',hadValidSaved='+JSON.stringify(validSaved)+';function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}function showSbmStep(){document.getElementById("mgrGuide").style.display="block";document.getElementById("sbmBox").style.display="block";}async function copyRef(b){w(b,true,"コピー中…");const t=document.getElementById("ref");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}w(b,false);b.querySelector(".tx").textContent="✓ コピーしました";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}function saveC(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("cst").textContent="aCreator回答のJSON部分を貼り付けてください。";return;}if(hadValidSaved&&!confirm("保存済みのaCreator記事作成回答を上書きします。よろしいですか？"))return;w(b,true,"処理中…");document.getElementById("cst").textContent="登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("cst").textContent="aCreator回答を登録しました。状態: "+r.state+"\\n"+(r.ready?"次にSIMS Managerへ新記事を登録してください。":"記事は未完成です。公開情報型へ変更する場合はSERP・カニバリを再評価してください。");if(r.ready){b.style.display="none";showSbmStep();document.getElementById("aid").focus();}}).withFailureHandler(e=>{w(b,false);document.getElementById("cst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosSaveCreatorResponseFromDialog(kw,t)}function saveS(b){const aid=document.getElementById("aid").value.trim();if(!/^A\\d{6}$/i.test(aid)){document.getElementById("sst").textContent="Article IDは Axxxxxx 形式（例: A900001）で入力してください。";return;}w(b,true,"処理中…");document.getElementById("sst").textContent="記録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("sst").textContent="SIMS Manager登録済み: "+r.articleId;b.style.display="none"}).withFailureHandler(e=>{w(b,false);document.getElementById("sst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterSbmResultFromCreatorDialog(kw,aid,document.getElementById("url").value)}</script></div></body></html>'
   ).setWidth(820).setHeight(760);
   SpreadsheetApp.getUi().showModalDialog(html,sbosIsNewSiteMode_()?'6. 選択した候補をaCreatorで処理':'7. GREEN / YELLOW / PALE PINK候補をaCreator処理');
 }

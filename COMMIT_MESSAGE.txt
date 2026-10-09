@@ -1,1 +1,1 @@
-docs(bos): clarify JSON-only aCreator response registration (v0.14.34)
+fix(bos): distinguish Creator article JSON from learning records (v0.14.35)
