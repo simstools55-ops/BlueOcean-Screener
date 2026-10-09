@@ -1,6 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.28
+ * Blue Ocean Screener v0.14.29
  * Single-Code Apps Script distribution.
+ * v0.14.29: validate aCreator completion and format internal link objects.
  * v0.14.28: split top menus by workflow, hide completed registration buttons, and remove remaining duplicate dialog body headings.
  * v0.14.27: refine new-site aCreator handoff text, remove duplicate dialog body headings, and keep dialog opening read-only to reduce sheet flicker.
  * v0.14.26: new-site aCreator eligibility is GREEN/YELLOW only; F5/open lightweight-syncs the GREEN+YELLOW count without full Home aggregation.
@@ -34,11 +35,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.28
+ * Blue Ocean Screener v0.14.29
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.28';
+const SBOS_VERSION = '0.14.29';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -3409,7 +3410,15 @@ function sbosBuildCreatorReferral_(v) {
     if (typeof x === 'string') return '- ' + x;
     return '- ' + (x.url || '') + (x.role ? ' — ' + x.role : '');
   }).join('\n') : '- 直接競合する既存記事なし';
-  const linkText = links.length ? links.map(x => '- ' + x).join('\n') : '- 必須候補なし';
+  const linkText = links.length ? links.map(x => {
+    if (typeof x === 'string') return '- ' + x;
+    if (!x || typeof x !== 'object') return '- ' + String(x || '');
+    const title = String(x.title || x.anchor_text || x.anchor || '').trim();
+    const url = String(x.url || x.href || '').trim();
+    const role = String(x.role || x.reason || '').trim();
+    return '- ' + ([title, url, role].filter(Boolean).join(' — ') || '詳細未設定');
+  }).join('\n') : '- 必須候補なし';
+  // Object-shaped link candidates are normalized below.
 
   const isTry = sbosStatusCode_(v[1]) === 'TRY';
   const tryRisk = isTry ? [
@@ -3460,11 +3469,19 @@ function sbosFindCandidateRowByKeyword_(keyword) {
   for(let i=0;i<vals.length;i++) if(sbosKeywordMatchKey_(vals[i][2])===key) return {row:i+2,values:vals[i]};
   return null;
 }
+function sbosValidateCreatorResponse_(responseText) {
+  const t = String(responseText || '').trim();
+  if (!t) throw new Error('aCreator回答全文を貼り付けてください。');
+  const head = t.slice(0, 2500);
+  if (/(?:^|\n)\s*(?:#{1,6}\s*)?(?:status|result|判定|処理結果)\s*[:：]\s*(?:BLOCKED|FAILED|ERROR|失敗|作成不可)/im.test(head) || /(?:^|\n)\s*(?:#{1,6}\s*)?(?:BLOCKED|作成不可|記事作成を中止)(?:\s|$|[:：])/im.test(head)) throw new Error('aCreator回答がBLOCKEDまたは失敗を示しています。作成済みには登録できません。');
+  if (t.length < 300 || !/(?:^|\n)\s*#{1,3}\s*\S+|<h[1-3]\b|<article\b|<p\b|(?:^|\n)\s*(?:記事本文|完成記事)\s*[:：]/im.test(t)) throw new Error('完成記事の本文を確認できません。aCreator回答全文を確認してください。');
+  return t;
+}
 function sbosSaveCreatorResponseFromDialog(keyword,responseText) {
   const h=sbosFindCandidateRowByKeyword_(keyword);
   if(!h)throw new Error('対象候補が見つかりません。');
   if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('aCreator処理は'+sbosCreatorEligibleLabel_()+'候補のみ対象です。');
-  const t=String(responseText||'').trim(); if(!t)throw new Error('aCreator回答全文を貼り付けてください。');
+  const t=sbosValidateCreatorResponse_(responseText);
   const sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   sbosSaveCreatorResponse_(keyword,t); sh.getRange(h.row,11).setValue('作成済み'); sh.getRange(h.row,1).setValue(false);
   sbosApplyCandidateFormatting_(); sbosSaveCreatorContext_();

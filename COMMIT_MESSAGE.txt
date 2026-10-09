@@ -1,1 +1,1 @@
-feat: reorganize BOS menus by workflow and hide completed actions v0.14.28
+fix(bos): validate aCreator output and format internal link candidates (v0.14.29)

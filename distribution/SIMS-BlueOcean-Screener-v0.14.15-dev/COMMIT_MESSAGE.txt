@@ -1,1 +1,0 @@
-fix: preserve new-site SERP fit metrics in Candidates v0.14.15

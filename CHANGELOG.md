@@ -1,3 +1,8 @@
+## v0.14.29
+- aCreator内部リンク候補のオブジェクトを読みやすいテキストに整形。
+- aCreatorのBLOCKED/FAILED/ERROR応答や記事本文がない応答を作成済みとして登録しない。
+- 登録失敗時は既存状態と保存済み回答を変更しない。
+
 ## v0.14.28
 - Split the Apps Script top menu into Existing Site, New Site, Settings/Management, and About BOS.
 - Place Candidate Pool / re-evaluation under both workflow menus while retaining context isolation.
