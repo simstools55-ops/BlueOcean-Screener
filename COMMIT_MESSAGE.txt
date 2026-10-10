@@ -1,1 +1,1 @@
-fix(bos): distinguish Creator article JSON from learning records (v0.14.35)
+fix(bos): store Creator responses individually in Drive (v0.14.36)
