@@ -1,1 +1,1 @@
-fix(bos): store Creator responses individually in Drive (v0.14.36)
+fix(bos): clarify Creator JSON errors and Manager registration state (v0.14.37)

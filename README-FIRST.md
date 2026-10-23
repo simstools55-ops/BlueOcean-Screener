@@ -1,4 +1,8 @@
-# SIMS Blue Ocean Screener v0.14.36
+# SIMS Blue Ocean Screener v0.14.37
+
+## v0.14.37 登録状態表示・回答形式エラーの改善
+- Manager登録済み案件では登録完了とArticle ID・公開URLを表示します。
+- 完成記事のないaCreator企画JSONには具体的なエラーを表示します。
 
 ## v0.14.36 再評価回答の登録
 - 設定・管理から候補を選び、Claude回答全文と推奨処置を保存します。旧GREEN/Score/aCreator状態は保持します。

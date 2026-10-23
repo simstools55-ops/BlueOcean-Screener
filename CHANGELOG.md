@@ -1,3 +1,7 @@
+# v0.14.37
+- Manager登録済み案件では新記事登録を再案内せず、Article IDと公開URLを表示。
+- aCreator企画JSON（article・publication_gate.status不足）を完成記事JSONと区別するエラー文へ改善。
+
 # v0.14.36
 - aCreator回答をGoogle Driveに個別保存。旧集約データは読み込み専用で保持し、50,000文字制限を回避。
 
