@@ -1,6 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.37
+ * Blue Ocean Screener v0.14.38
  * Single-Code Apps Script distribution.
+ * v0.14.38: evidence-dependent Creator handoff safeguards, public-information reevaluation and link verification guidance.
  * v0.14.37: distinguish registered Manager handoff and explain malformed Creator article JSON.
  * v0.14.36: store each Creator response as a separate Drive JSON file; retain legacy aggregate read-only.
  * v0.14.36: validate Creator article JSON and protect legacy learning records in the dialog.
@@ -41,11 +42,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.37
+ * Blue Ocean Screener v0.14.38
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.37';
+const SBOS_VERSION = '0.14.38';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -3448,6 +3449,10 @@ function sbosBuildCreatorReferral_(v) {
     d.existing_article_boundary || '既存記事の担当検索意図を侵食しないでください.','',
     '## 近接する既存記事', matchedText,'',
     '## 内部リンク候補', linkText,'',
+    '## 内部リンクの採用条件',
+    '候補のアンカーテキスト・タイトルはBOSの参考情報であり、リンク先本文の照合済みを意味しません。実在URLを開いて記事の主題・見出し・本文との一致を確認し、不一致・取得不可なら採用せず理由を報告してください。','',
+    '## 実体験・実測の制約',
+    '個人ブロガーが実機測定や本人の利用体験を提供できないことを標準前提とします。未提供の実測値・使用感・体験談を作らないでください。実体験が記事の中心価値となる場合、この依頼のGREEN判定を公開情報型へ流用せず、記事執筆を停止してSERP・カニバリ再評価へ戻してください。','',
     '## カニバリ防止条件',
     '上記の担当境界を守り、既存記事が担当する検索意図を奪わないでください。重複する一般説明は必要最小限とし、近接記事とは内部リンクで役割分担してください。','',
     '## 事実確認',
@@ -3596,7 +3601,8 @@ function sbosCreatorEvidencePreflight_(row) {
   const kw=String(row[2]||'');
   const evidence=[kw,row[7],row[8]].join(' ');
   const state=String(row[10]||'');
-  const requiresExperience=/(実機|実測|ベンチ|前後比較|体感|実際に|使ってみた|使用レビュー|実体験|自分で試)/i.test(evidence);
+  // Detect experiential claims as well as review/benchmark intent; only gates the handoff.
+  const requiresExperience=/(実機|実測|ベンチ|前後比較|体感|実際に|使ってみた|使用レビュー|実体験|自分で試|独自検証|ゲーム性能|起動時間|使用感|レビュー|review|benchmark)/i.test(evidence);
   return {requiresExperience:requiresExperience, state:state, keyword:kw};
 }
 function sbosShowPublicInfoAlternativeBrief_(row) {
@@ -3609,9 +3615,10 @@ function sbosShowPublicInfoAlternativeBrief_(row) {
     '## 元の検索意図',intent,'',
     '## 元のSERP根拠（実体験型の評価。代替企画へ流用不可）',evidence,'',
     '## 制約','利用者は実機測定・独自体験を提供できません。実機レビューや実測比較を装う記事は作成しないでください。','',
-    '## 代替案','公式一次情報と出典を検証できる公開レビュー・利用者投稿を用いた「評判・公開情報の比較整理」記事を検討してください。実際の投稿や一次情報が確認できなければ採用しないでください。','',
+    '## 代替案','公式一次情報と出典を検証できる第三者の検証結果・公開レビュー・利用者投稿を用いた「評判・公開情報の比較整理」記事を優先検討してください。実際の投稿や一次情報が確認できなければ採用しないでください。出典の見解と執筆者の推測を分け、本人の使用体験を装わないでください。','',
     '## Claudeへ依頼する再評価','(1) 代替企画の具体的な検索意図・タイトル案・見出し案を提案。','(2) 現在のSERPを新しい企画の意図で調査し、実在URL・公開日・競合の強み弱みを根拠に順位到達可能性を再評価。','(3) 既存サイトの場合は既存記事とのカニバリを再評価。','(4) 公開情報だけで固有価値を提供できない場合は記事化見送りを明示。','(5) GREENなどの旧判定を引き継がず、再評価が必要と明記。','',
-    '## 注意','この文面はaCreatorへの記事執筆依頼ではありません。再評価結果をBOSの既存SERP/カニバリ精査フローで検証・登録してから新規依頼を作成してください。'
+    '## 内部リンク確認','BOSのリンク候補は本文照合済みとは限りません。採用前にリンク先記事を取得し、アンカーと実際の主題が一致するか確認してください。不一致は除外してください。','',
+    '## 注意','この文面はaCreatorへの記事執筆依頼ではありません。元のScore/GREEN/TOP10は実体験型企画の履歴であり、公開情報型へ流用しません。新しい検索意図・競争力・カニバリの再評価が確認できるまでaCreatorへ記事執筆を依頼しないでください。'
   ].join('\n');
   const html=HtmlService.createHtmlOutput('<!doctype html><html><head><base target="_top"><style>body{font-family:Arial,sans-serif;padding:18px;color:#202124}textarea{width:100%;height:390px;box-sizing:border-box;padding:10px;line-height:1.5}button{margin:12px 8px 0 0;padding:9px 14px;border:0;border-radius:6px;background:#1a73e8;color:white;cursor:pointer}.hint{background:#fff4dd;padding:12px;border-radius:6px;line-height:1.6}</style></head><body><div class="hint"><b>公開情報型の代替企画案</b><br>元のGREEN判定は維持しますが、代替企画のGREEN判定は未確定です。この記事の執筆はまだ開始しません。SERP・既存記事との競合を再評価してください。</div><p>以下をコピーしてClaudeで企画を再評価してください。</p><textarea id="brief" readonly>'+sbosEscapeHtml_(brief)+'</textarea><div><button onclick="copy()">再評価依頼文をコピー</button><button onclick="google.script.host.close()">閉じる</button></div><p id="status"></p><script>async function copy(){const t=document.getElementById("brief");try{await navigator.clipboard.writeText(t.value);document.getElementById("status").textContent="コピーしました"}catch(e){t.select();document.execCommand("copy");document.getElementById("status").textContent="コピー操作を実行しました"}}</script></body></html>').setWidth(780).setHeight(690);
   SpreadsheetApp.getUi().showModalDialog(html,'公開情報型への代替企画・再評価');

@@ -515,3 +515,6 @@
 - 公開情報型への変更はSERP・カニバリ再評価を必須とする（自動企画生成・自動再評価は未実装）。
 - 注意：記事本文の存在判定は形式ベース。完成品質・一次情報確認はaCreatorのpublication gateで別途確認する。
 
+
+## v0.14.38
+- Evidence-aware Creator preflight and safer public-information alternative handoff; anchor/target verification guidance.

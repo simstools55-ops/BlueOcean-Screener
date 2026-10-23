@@ -1,6 +1,6 @@
-# SIMS Blue Ocean Screener v0.14.37
+# SIMS Blue Ocean Screener v0.14.38
 
-## v0.14.37 登録状態表示・回答形式エラーの改善
+## v0.14.38 登録状態表示・回答形式エラーの改善
 - Manager登録済み案件では登録完了とArticle ID・公開URLを表示します。
 - 完成記事のないaCreator企画JSONには具体的なエラーを表示します。
 
