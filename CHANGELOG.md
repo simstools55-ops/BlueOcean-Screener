@@ -518,3 +518,14 @@
 
 ## v0.14.38
 - Evidence-aware Creator preflight and safer public-information alternative handoff; anchor/target verification guidance.
+
+## v0.14.39
+- GREEN記事化優先：実機・実体験がなくても公開情報型記事をaCreatorへ直接依頼。
+- 実機根拠の強制確認ダイアログを通常フローから削除。旧代替再評価データ・機能は互換性のため保持。
+- 事実確認・捏造禁止・カニバリ境界・publication gateを維持。
+
+## v0.14.40
+- 設定・管理から旧「選択案件の代替企画・再評価を登録」メニューを削除。
+- 未使用の旧代替企画再評価・登録・Manager依頼文生成処理を削除。
+- aCreator状態再判定の旧再評価必須メッセージを撤去。
+- 保存済み alternative_review_json と既存候補・SERP・aCreator・Manager登録データは保持。

@@ -1,7 +1,8 @@
 /**
- * Blue Ocean Screener v0.14.38
+ * Blue Ocean Screener v0.14.40
  * Single-Code Apps Script distribution.
- * v0.14.38: evidence-dependent Creator handoff safeguards, public-information reevaluation and link verification guidance.
+ * v0.14.40: retire obsolete alternative-review menu and workflow; preserve historical records.
+ * v0.14.39: prioritize factual public-source articles for GREEN candidates without mandatory experience preflight.
  * v0.14.37: distinguish registered Manager handoff and explain malformed Creator article JSON.
  * v0.14.36: store each Creator response as a separate Drive JSON file; retain legacy aggregate read-only.
  * v0.14.36: validate Creator article JSON and protect legacy learning records in the dialog.
@@ -42,11 +43,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.38
+ * Blue Ocean Screener v0.14.40
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.38';
+const SBOS_VERSION = '0.14.40';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -446,7 +447,6 @@ function sbosBuildMenu_() {
   ui.createMenu('設定・管理')
     .addItem('処理状態を確認する', 'sbosShowStatus')
     .addItem('選択案件のaCreator状態を再判定', 'sbosRepairSelectedCreatorState')
-    .addItem('選択案件の代替企画・再評価を登録', 'sbosShowAlternativeReviewRegistration')
     .addItem('現在の処理を続ける', 'sbosResumeBatch')
     .addSeparator()
     .addItem('保存先を設定する', 'sbosShowOutputSettings')
@@ -3406,6 +3406,8 @@ function sbosBuildNewSiteCreatorReferral_(v) {
     '上記の検索意図とSERP分析を基に、このキーワード固有の疑問を1記事で解決できる記事を設計してください。競合に不足している情報は、最新の一次情報で事実確認したうえで補完してください。','',
     '## 事実確認',
     '仕様・不具合・手順・価格・発売状況などは執筆時点の一次情報を優先してWeb確認し、未確認情報を断定しないでください。','',
+    '## 記事化優先・捏造防止',
+    'GREEN候補は先行公開を目指し、実機測定や本人の体験がなくても、公式情報と信頼できる第三者の海外レビュー・検証・公開資料を調査して、出典付きの比較・整理・解説型記事を完成させてください。第三者の結果を自分の実測として書かず、測定条件と情報の限界を明記してください。資料不足だけでBLOCKEDにせず、確認できない項目は省略してください。中心主張の根拠不足・重大な事実誤認・捏造がある場合は公開不可です。ScoreとGREENは元キーワードの探索結果であり、記事形式変更後の順位保証ではありません。','',
     '## aCreatorへの指示',
     'これは新規サイト向けの1キーワード＝1記事の新記事作成案件です。既存記事のリライト、カニバリ判定、内部リンク設計、サイト全体のクラスター設計はこの依頼では行わないでください。'
   ].join('\n');
@@ -3451,8 +3453,10 @@ function sbosBuildCreatorReferral_(v) {
     '## 内部リンク候補', linkText,'',
     '## 内部リンクの採用条件',
     '候補のアンカーテキスト・タイトルはBOSの参考情報であり、リンク先本文の照合済みを意味しません。実在URLを開いて記事の主題・見出し・本文との一致を確認し、不一致・取得不可なら採用せず理由を報告してください。','',
-    '## 実体験・実測の制約',
-    '個人ブロガーが実機測定や本人の利用体験を提供できないことを標準前提とします。未提供の実測値・使用感・体験談を作らないでください。実体験が記事の中心価値となる場合、この依頼のGREEN判定を公開情報型へ流用せず、記事執筆を停止してSERP・カニバリ再評価へ戻してください。','',
+    '## 記事化優先方針（GREEN候補を積極的に記事化）',
+    '本案件は検索需要の先行獲得を狙う新記事作成です。実機データや本人の体験がなくても、それだけを理由に執筆を停止しないでください。公式情報、信頼できる第三者のレビュー・検証結果、公開資料を調査し、出典を明示した比較・整理・解説型の記事として、確認できる範囲で完成HTMLを作成してください。海外情報が中心でも、日本語読者の判断に役立つよう複数資料を照合し、測定条件と限界を明示してください。','',
+    '## 捏造防止と公開条件',
+    '未提供の実測値・使用感・体験談・架空の出典は絶対に作らないでください。確認済み事実、第三者の評価、筆者の考察を区別してください。資料不足だけでBLOCKEDにせず、確認できない個別項目は省略または未確認と明記してください。ただし中心的な主張の根拠がない、重大な事実誤認がある、既存記事と実質的に重複する場合は公開を許可しないでください。公開可能な記事は完成HTMLとpublication_gateを返してください。公開後はSIMS Managerで検索実績を測定し改善します。BOSのScore・GREENは元キーワードの探索結果であり、記事形式変更後の上位表示を保証しません。','',
     '## カニバリ防止条件',
     '上記の担当境界を守り、既存記事が担当する検索意図を奪わないでください。重複する一般説明は必要最小限とし、近接記事とは内部リンクで役割分担してください。','',
     '## 事実確認',
@@ -3577,7 +3581,7 @@ function sbosRepairSelectedCreatorState() {
   const sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   sh.getRange(x.row,11).setValue(a.state);sh.getRange(x.row,1).setValue(false);
   sbosApplyCandidateFormatting_();sbosSaveCreatorContext_();
-  ui.alert('再判定完了','状態: '+a.state+'\n元のGREEN判定・SERP根拠は変更していません。公開情報型への企画変更には再評価が必要です。',ui.ButtonSet.OK);
+  ui.alert('再判定完了','状態: '+a.state+'\n元のGREEN判定・SERP根拠は変更していません。',ui.ButtonSet.OK);
   return {old:old,state:a.state,changed:true};
 }
 function sbosRegisterSbmResultFromCreatorDialog(keyword,articleId,publicUrl) {
@@ -3594,132 +3598,18 @@ function sbosRegisterSbmResultFromCreatorDialog(keyword,articleId,publicUrl) {
   return {ok:true,articleId:aid,url:url};
 }
 /**
- * Preflight is advisory, never a substitute for a new SERP/cannibal review.
- * It does not mutate the candidate, its GREEN/YELLOW score, or Creator history.
+ * Legacy alternative-review records remain in State (alternative_review_json).
+ * v0.14.40 retires their separate UI and mutation APIs; existing data is untouched.
+ * Candidate grades, SERP evidence, creator replies, and Manager IDs are unaffected.
  */
-function sbosCreatorEvidencePreflight_(row) {
-  const kw=String(row[2]||'');
-  const evidence=[kw,row[7],row[8]].join(' ');
-  const state=String(row[10]||'');
-  // Detect experiential claims as well as review/benchmark intent; only gates the handoff.
-  const requiresExperience=/(実機|実測|ベンチ|前後比較|体感|実際に|使ってみた|使用レビュー|実体験|自分で試|独自検証|ゲーム性能|起動時間|使用感|レビュー|review|benchmark)/i.test(evidence);
-  return {requiresExperience:requiresExperience, state:state, keyword:kw};
-}
-function sbosShowPublicInfoAlternativeBrief_(row) {
-  const kw=String(row[2]||'');
-  const intent=String(row[7]||'');
-  const evidence=String(row[8]||'');
-  const brief=[
-    '# BOS 代替企画の再評価依頼（記事執筆指示ではありません）','',
-    '## 元のメインキーワード',kw,'',
-    '## 元の検索意図',intent,'',
-    '## 元のSERP根拠（実体験型の評価。代替企画へ流用不可）',evidence,'',
-    '## 制約','利用者は実機測定・独自体験を提供できません。実機レビューや実測比較を装う記事は作成しないでください。','',
-    '## 代替案','公式一次情報と出典を検証できる第三者の検証結果・公開レビュー・利用者投稿を用いた「評判・公開情報の比較整理」記事を優先検討してください。実際の投稿や一次情報が確認できなければ採用しないでください。出典の見解と執筆者の推測を分け、本人の使用体験を装わないでください。','',
-    '## Claudeへ依頼する再評価','(1) 代替企画の具体的な検索意図・タイトル案・見出し案を提案。','(2) 現在のSERPを新しい企画の意図で調査し、実在URL・公開日・競合の強み弱みを根拠に順位到達可能性を再評価。','(3) 既存サイトの場合は既存記事とのカニバリを再評価。','(4) 公開情報だけで固有価値を提供できない場合は記事化見送りを明示。','(5) GREENなどの旧判定を引き継がず、再評価が必要と明記。','',
-    '## 内部リンク確認','BOSのリンク候補は本文照合済みとは限りません。採用前にリンク先記事を取得し、アンカーと実際の主題が一致するか確認してください。不一致は除外してください。','',
-    '## 注意','この文面はaCreatorへの記事執筆依頼ではありません。元のScore/GREEN/TOP10は実体験型企画の履歴であり、公開情報型へ流用しません。新しい検索意図・競争力・カニバリの再評価が確認できるまでaCreatorへ記事執筆を依頼しないでください。'
-  ].join('\n');
-  const html=HtmlService.createHtmlOutput('<!doctype html><html><head><base target="_top"><style>body{font-family:Arial,sans-serif;padding:18px;color:#202124}textarea{width:100%;height:390px;box-sizing:border-box;padding:10px;line-height:1.5}button{margin:12px 8px 0 0;padding:9px 14px;border:0;border-radius:6px;background:#1a73e8;color:white;cursor:pointer}.hint{background:#fff4dd;padding:12px;border-radius:6px;line-height:1.6}</style></head><body><div class="hint"><b>公開情報型の代替企画案</b><br>元のGREEN判定は維持しますが、代替企画のGREEN判定は未確定です。この記事の執筆はまだ開始しません。SERP・既存記事との競合を再評価してください。</div><p>以下をコピーしてClaudeで企画を再評価してください。</p><textarea id="brief" readonly>'+sbosEscapeHtml_(brief)+'</textarea><div><button onclick="copy()">再評価依頼文をコピー</button><button onclick="google.script.host.close()">閉じる</button></div><p id="status"></p><script>async function copy(){const t=document.getElementById("brief");try{await navigator.clipboard.writeText(t.value);document.getElementById("status").textContent="コピーしました"}catch(e){t.select();document.execCommand("copy");document.getElementById("status").textContent="コピー操作を実行しました"}}</script></body></html>').setWidth(780).setHeight(690);
-  SpreadsheetApp.getUi().showModalDialog(html,'公開情報型への代替企画・再評価');
-}
-
-/** Alternative-plan review is separate evidence. It never overwrites the original candidate verdict. */
-function sbosGetAlternativeReviewMap_() {
-  try { return JSON.parse(sbosGetState_('alternative_review_json') || '{}') || {}; }
-  catch(e) { return {}; }
-}
-function sbosGetAlternativeReview_(keyword) {
-  return sbosGetAlternativeReviewMap_()[sbosKeywordMatchKey_(keyword)] || null;
-}
-function sbosRegisterAlternativeReview_(keyword, response, disposition, verified, targetUrl) {
-  const h=sbosFindCandidateRowByKeyword_(keyword);
-  if(!h)throw new Error('対象候補が見つかりません。');
-  if(!sbosIsCreatorEligibleStatus_(h.values[1]))throw new Error('対象外の候補です。');
-  if(String(h.values[13]||'').trim())throw new Error('SIMS Manager登録済み案件はここで変更できません。');
-  const choices={NEW_ARTICLE:'新規記事化候補',WAIT:'資料待ち・再評価待ち',IMPROVE_EXISTING:'既存記事改善を推奨',HOLD:'新規記事化を見送り'};
-  if(!Object.prototype.hasOwnProperty.call(choices,disposition))throw new Error('処置区分を選択してください。');
-  const t=String(response||'').trim();
-  if(t.length<100)throw new Error('Claudeの再評価回答全文を貼り付けてください（100文字以上）。');
-  if(verified!==true)throw new Error('原文と判定内容の確認が必要です。');
-  const url=String(targetUrl||'').trim();
-  if(disposition==='IMPROVE_EXISTING' && url && !/^https?:\/\//i.test(url))throw new Error('既存記事URLはhttps://から入力してください。');
-  const key=sbosKeywordMatchKey_(keyword), map=sbosGetAlternativeReviewMap_(), prior=map[key];
-  const record={keyword:String(keyword),disposition:disposition,label:choices[disposition],review_text:t,target_url:url,
-    recorded_at:sbosNow_(),original_verdict:String(h.values[1]||''),original_score:h.values[5],original_cannibal:String(h.values[6]||''),
-    review_status:'CLAUDE_REVIEW_RECORDED_SERP_UNVERIFIED',verification_required:true,
-    creator_state_at_review:String(h.values[10]||''),previous:prior?{recorded_at:prior.recorded_at,disposition:prior.disposition}:null};
-  map[key]=record;
-  sbosSetState_('alternative_review_json',JSON.stringify(map));
-  return {ok:true,label:record.label,recordedAt:record.recorded_at,needsSerp:true};
-}
-/** Public entry points for HtmlService google.script.run. */
-function sbosRegisterAlternativeReview(keyword, response, disposition, verified, targetUrl) {
-  return sbosRegisterAlternativeReview_(keyword, response, disposition, verified, targetUrl);
-}
-function sbosBuildExistingArticleImprovementBrief(keyword) {
-  return sbosBuildExistingArticleImprovementBrief_(keyword);
-}
-function sbosBuildExistingArticleImprovementBrief_(keyword) {
-  const r=sbosGetAlternativeReview_(keyword);
-  if(!r||r.disposition!=='IMPROVE_EXISTING')throw new Error('既存記事改善の再評価結果がありません。');
-  return [
-    '# SIMS Managerへの改善検討依頼（BOSからの参考情報）','',
-    '## 元の探索キーワード',r.keyword,'',
-    '## 推奨処置',r.label,'',
-    '## 改善対象候補URL',r.target_url||'未確認。Managerで対象記事を特定してください。','',
-    '## 再評価結果（Claude回答・未検証）',r.review_text,'',
-    '## 実施条件','BOSの旧GREEN/Score/カニバリ判定を改善判断に流用しないでください。',
-    'Managerで対象記事を特定し、aDoctorによる診断・一次情報とSERPの再確認を経て、aWriterへの改善依頼を判断してください。',
-    'BOSは記事本文を変更せず、改善履歴も自動登録しません。'
-  ].join('\n');
-}
-function sbosGetAlternativeReviewForDialog_(keyword) {
-  const r=sbosGetAlternativeReview_(keyword);
-  return r?{disposition:r.disposition,label:r.label,review_text:r.review_text,target_url:r.target_url,recorded_at:r.recorded_at}:null;
-}
-function sbosShowAlternativeReviewRegistration() {
-  const selected=sbosGetCheckedCandidateRows_();
-  if(selected.length!==1)throw new Error('Candidatesで代替企画を再評価した候補を1件だけチェックしてください。');
-  const row=selected[0].values,kw=String(row[2]||''),existing=sbosGetAlternativeReview_(kw);
-  const hint='元の判定: '+String(row[1])+' / Score '+String(row[5])+' / aCreator: '+String(row[10])+'。元の判定・状態は変更しません。';
-  const html=`<!doctype html><html><head><base target="_top"><style>body{font:14px Arial,sans-serif;padding:18px;color:#202124}textarea,input,select{box-sizing:border-box;width:100%;padding:9px;margin:6px 0 12px}textarea{height:255px;line-height:1.5}.hint{padding:12px;background:#fff4dd;border-radius:6px;line-height:1.6}button{background:#1a73e8;color:white;border:0;border-radius:5px;padding:10px 14px;margin:6px;cursor:pointer}button:disabled{opacity:.5}label{display:block;margin-top:8px}small{color:#5f6368}#result{white-space:pre-wrap}</style></head><body>
-  <h3>代替企画・再評価の登録</h3><div class="hint" id="hint"></div>
-  <label>Claudeの再評価回答全文</label><textarea id="response" placeholder="Claudeの回答全文を貼り付けてください"></textarea>
-  <label>推奨処置（回答を読んで利用者が選択）</label><select id="disposition"><option value="">選択してください</option><option value="NEW_ARTICLE">新規記事化候補（SERP再検証が必要）</option><option value="WAIT">資料待ち・再評価待ち</option><option value="IMPROVE_EXISTING">既存記事改善を推奨</option><option value="HOLD">新規記事化を見送り</option></select>
-  <label>改善対象の既存記事URL（判明している場合のみ）</label><input id="url" placeholder="https://...（任意）">
-  <label><input id="verified" type="checkbox" style="width:auto;margin-right:7px">回答と処置区分を確認しました（SERP検証完了を意味しません）</label>
-  <button id="save" onclick="save()">再評価結果を保存</button><button id="handoff" onclick="handoff()" style="display:none">Manager向け依頼文を表示</button><button onclick="google.script.host.close()">閉じる</button>
-  <div id="result" role="status"></div><textarea id="brief" readonly style="display:none"></textarea><button id="copy" style="display:none" onclick="copyBrief()">依頼文をコピー</button>
-  <script>
-  const kw=${JSON.stringify(kw)},old=${JSON.stringify(existing?{disposition:existing.disposition,review_text:existing.review_text,target_url:existing.target_url}:null)};
-  document.getElementById('hint').textContent=${JSON.stringify(hint)};
-  if(old){document.getElementById('response').value=old.review_text||'';document.getElementById('disposition').value=old.disposition||'';document.getElementById('url').value=old.target_url||'';document.getElementById('result').textContent='保存済みの再評価結果を読み込みました。';if(old.disposition==='IMPROVE_EXISTING')document.getElementById('handoff').style.display='inline-block';}
-  function fail(e){document.getElementById('save').disabled=false;document.getElementById('result').textContent='エラー: '+(e&&e.message||e)}
-  function save(){const b=document.getElementById('save');b.disabled=true;document.getElementById('result').textContent='保存中…';const d=document.getElementById('disposition').value;google.script.run.withSuccessHandler(r=>{b.disabled=false;document.getElementById('result').textContent='保存しました: '+r.label+'\\n※SERP・カニバリの検証は未完了です。元のGREEN判定・aCreator状態は変更していません。';document.getElementById('handoff').style.display=d==='IMPROVE_EXISTING'?'inline-block':'none';}).withFailureHandler(fail).sbosRegisterAlternativeReview(kw,document.getElementById('response').value,d,document.getElementById('verified').checked,document.getElementById('url').value)}
-  function handoff(){google.script.run.withSuccessHandler(t=>{document.getElementById('brief').value=t;document.getElementById('brief').style.display='block';document.getElementById('copy').style.display='inline-block';}).withFailureHandler(e=>document.getElementById('result').textContent='エラー: '+e.message).sbosBuildExistingArticleImprovementBrief(kw)}
-  async function copyBrief(){const t=document.getElementById('brief');try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand('copy')}document.getElementById('result').textContent='依頼文をコピーしました。'}
-  </script></body></html>`;
-  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(html).setWidth(820).setHeight(790),'代替企画・再評価を登録');
-}
-
 function sbosShowCreatorWorkflowDialog() {
   const s=sbosGetCheckedCandidateRows_();
   if(!s.length)throw new Error('CandidatesでaCreator処理する'+sbosCreatorEligibleLabel_()+'候補を1件チェックしてください。');
   if(s.length!==1)throw new Error('aCreator処理は1件ずつ行います。チェックは1件だけにしてください。');
   const x=s[0];
   if(!sbosIsCreatorEligibleStatus_(x.values[1]))throw new Error('aCreator処理は'+sbosCreatorEligibleLabel_()+'候補のみ対象です。');
-  const preflight=sbosCreatorEvidencePreflight_(x.values);
-  if(preflight.requiresExperience && preflight.state!=='作成済み' && preflight.state!=='SIMS Manager登録済み') {
-    const ui=SpreadsheetApp.getUi();
-    const choice=ui.alert('記事化の根拠を確認',
-      'この候補は実機データ・実体験に依存する可能性があります。\n\n'+
-      '「はい」: 実機・実体験の根拠を用意できるため、元のaCreator依頼文を表示\n'+
-      '「いいえ」: 公開情報型の代替企画・再評価依頼文を表示（記事はまだ作成しません）\n'+
-      '「キャンセル」: 何もしない',ui.ButtonSet.YES_NO_CANCEL);
-    if(choice===ui.Button.CANCEL || choice===ui.Button.CLOSE) return;
-    if(choice===ui.Button.NO) {sbosShowPublicInfoAlternativeBrief_(x.values);return;}
-  }
+  // v0.14.39: Do not divert evidence-dependent GREEN candidates to mandatory reevaluation.
+  // The aCreator brief now requests a sourced public-information article without fabricated experience.
   const kw=String(x.values[2]||''), sh=SpreadsheetApp.getActive().getSheetByName(SBOS_SHEETS.CANDIDATES);
   let cs=String(x.values[10]||'');
   // v0.14.27: opening the dialog is read-only. Persist only after the user registers aCreator output.
@@ -3731,7 +3621,7 @@ function sbosShowCreatorWorkflowDialog() {
     '<div class="b"><div class="l">② aCreator回答（JSONのみ）</div><div style="font-size:12px;line-height:1.6;margin:4px 0 8px">aCreator回答のJSON部分（{ から } まで）を省略せず貼り付けてください。前後の説明文・Sources・```json 等の囲み記号は不要です。回答全文はGoogle Driveへキーワード別に保存します。</div><textarea id="ans" placeholder="aCreator回答のJSONのみを貼り付け">'+sbosEscapeHtml_(resp)+'</textarea><div id="cst" class="st">'+sbosEscapeHtml_(savedNotice)+'</div><div class="a"><button id="saveCreatorBtn" class="p" style="display:'+(creatorReady?'none':'inline-flex')+'" onclick="saveC(this)"><span class="sp"></span><span class="tx">aCreator回答を登録</span></button></div></div>' +
     '<div id="mgrGuide" class="m" style="display:'+(creatorReady?'block':'none')+';margin-top:12px">'+(managerRegistered?'<b>SIMS Managerへの登録は完了しています。</b><br>Article ID: '+sbosEscapeHtml_(aid)+(url?'<br>公開URL: '+sbosEscapeHtml_(url):'')+'<br>追加の登録操作は必要ありません。':'<b>次の操作: SIMS Managerへ新記事を登録</b><br>aCreatorで作成した新記事をSIMS Managerへ登録し、発行された <b>Article ID（Axxxxxx）</b> を確認してください。<br>Article IDを取得したら、下の③でSIMS Managerへの登録結果をBOSへ記録します。公開URLは公開済みの場合だけ入力してください。')+'</div>' +
     '<div id="sbmBox" class="b" style="display:'+(creatorReady?'block':'none')+'"><div class="l">③ SIMS Managerへの登録結果を記録</div><input id="aid" placeholder="Article ID 例: A900001" value="'+sbosEscapeHtml_(aid)+'"><input id="url" placeholder="公開URL（公開済みの場合。未公開なら空欄可）" value="'+sbosEscapeHtml_(url)+'"><div id="sst" class="st">'+(aid?'SIMS Manager登録済み: '+sbosEscapeHtml_(aid):'SIMS Managerで新記事を登録し、発行されたArticle ID（Axxxxxx）を入力してください。')+'</div><div class="a"><button class="s" onclick="google.script.host.close()">閉じる</button><button id="saveSbmBtn" class="p" style="display:'+(aid?'none':'inline-flex')+'" onclick="saveS(this)"><span class="sp"></span><span class="tx">SIMS Manager登録結果を記録</span></button></div></div>' +
-    '<script>const kw='+JSON.stringify(kw)+',hadValidSaved='+JSON.stringify(validSaved)+';function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}function showSbmStep(){document.getElementById("mgrGuide").style.display="block";document.getElementById("sbmBox").style.display="block";}async function copyRef(b){w(b,true,"コピー中…");const t=document.getElementById("ref");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}w(b,false);b.querySelector(".tx").textContent="✓ コピーしました";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}function saveC(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("cst").textContent="aCreator回答のJSON部分を貼り付けてください。";return;}if(hadValidSaved&&!confirm("保存済みのaCreator記事作成回答を上書きします。よろしいですか？"))return;w(b,true,"処理中…");document.getElementById("cst").textContent="登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("cst").textContent="aCreator回答を登録しました。状態: "+r.state+"\\n"+(r.ready?"次にSIMS Managerへ新記事を登録してください。":"記事は未完成です。公開情報型へ変更する場合はSERP・カニバリを再評価してください。");if(r.ready){b.style.display="none";showSbmStep();document.getElementById("aid").focus();}}).withFailureHandler(e=>{w(b,false);document.getElementById("cst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosSaveCreatorResponseFromDialog(kw,t)}function saveS(b){const aid=document.getElementById("aid").value.trim();if(!/^A\\d{6}$/i.test(aid)){document.getElementById("sst").textContent="Article IDは Axxxxxx 形式（例: A900001）で入力してください。";return;}w(b,true,"処理中…");document.getElementById("sst").textContent="記録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("sst").textContent="SIMS Manager登録済み: "+r.articleId;document.getElementById("mgrGuide").innerHTML="<b>SIMS Managerへの登録は完了しています。</b><br>Article ID: "+r.articleId+"<br>追加の登録操作は必要ありません。";b.style.display="none"}).withFailureHandler(e=>{w(b,false);document.getElementById("sst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterSbmResultFromCreatorDialog(kw,aid,document.getElementById("url").value)}</script></div></body></html>'
+    '<script>const kw='+JSON.stringify(kw)+',hadValidSaved='+JSON.stringify(validSaved)+';function w(b,on,x){const t=b.querySelector(".tx");if(on){b.dataset.o=t.textContent;t.textContent=x||"処理中…";b.classList.add("working");b.disabled=true}else{t.textContent=b.dataset.o||"実行";b.classList.remove("working");b.disabled=false}}function showSbmStep(){document.getElementById("mgrGuide").style.display="block";document.getElementById("sbmBox").style.display="block";}async function copyRef(b){w(b,true,"コピー中…");const t=document.getElementById("ref");try{await navigator.clipboard.writeText(t.value)}catch(e){t.select();document.execCommand("copy")}w(b,false);b.querySelector(".tx").textContent="✓ コピーしました";setTimeout(()=>b.querySelector(".tx").textContent="依頼文をコピー",2200)}function saveC(b){const t=document.getElementById("ans").value;if(!t.trim()){document.getElementById("cst").textContent="aCreator回答のJSON部分を貼り付けてください。";return;}if(hadValidSaved&&!confirm("保存済みのaCreator記事作成回答を上書きします。よろしいですか？"))return;w(b,true,"処理中…");document.getElementById("cst").textContent="登録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("cst").textContent="aCreator回答を登録しました。状態: "+r.state+"\\n"+(r.ready?"次にSIMS Managerへ新記事を登録してください。":"記事は未完成です。aCreatorの公開判定と不足する根拠を確認してください。");if(r.ready){b.style.display="none";showSbmStep();document.getElementById("aid").focus();}}).withFailureHandler(e=>{w(b,false);document.getElementById("cst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosSaveCreatorResponseFromDialog(kw,t)}function saveS(b){const aid=document.getElementById("aid").value.trim();if(!/^A\\d{6}$/i.test(aid)){document.getElementById("sst").textContent="Article IDは Axxxxxx 形式（例: A900001）で入力してください。";return;}w(b,true,"処理中…");document.getElementById("sst").textContent="記録しています…";google.script.run.withSuccessHandler(r=>{w(b,false);document.getElementById("sst").textContent="SIMS Manager登録済み: "+r.articleId;document.getElementById("mgrGuide").innerHTML="<b>SIMS Managerへの登録は完了しています。</b><br>Article ID: "+r.articleId+"<br>追加の登録操作は必要ありません。";b.style.display="none"}).withFailureHandler(e=>{w(b,false);document.getElementById("sst").textContent="エラー: "+(e&&e.message?e.message:e)}).sbosRegisterSbmResultFromCreatorDialog(kw,aid,document.getElementById("url").value)}</script></div></body></html>'
   ).setWidth(820).setHeight(760);
   SpreadsheetApp.getUi().showModalDialog(html,sbosIsNewSiteMode_()?'6. 選択した候補をaCreatorで処理':'7. GREEN / YELLOW / PALE PINK候補をaCreator処理');
 }
