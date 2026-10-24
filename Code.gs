@@ -1,7 +1,7 @@
 /**
- * Blue Ocean Screener v0.14.40
+ * Blue Ocean Screener v0.14.41
  * Single-Code Apps Script distribution.
- * v0.14.40: retire obsolete alternative-review menu and workflow; preserve historical records.
+ * v0.14.41: retire obsolete alternative-review menu and workflow; preserve historical records.
  * v0.14.39: prioritize factual public-source articles for GREEN candidates without mandatory experience preflight.
  * v0.14.37: distinguish registered Manager handoff and explain malformed Creator article JSON.
  * v0.14.36: store each Creator response as a separate Drive JSON file; retain legacy aggregate read-only.
@@ -43,11 +43,11 @@
 // Source consolidated from: Code.gs
 // ============================================================================
 /**
- * Blue Ocean Screener v0.14.40
+ * Blue Ocean Screener v0.14.41
  * Prototype baseline.
  */
 const SBOS_PRODUCT_NAME = 'Blue Ocean Screener';
-const SBOS_VERSION = '0.14.40';
+const SBOS_VERSION = '0.14.41';
 
 const SBOS_MODE = {
   EXISTING_SITE: 'EXISTING_SITE',
@@ -3408,9 +3408,21 @@ function sbosBuildNewSiteCreatorReferral_(v) {
     '仕様・不具合・手順・価格・発売状況などは執筆時点の一次情報を優先してWeb確認し、未確認情報を断定しないでください。','',
     '## 記事化優先・捏造防止',
     'GREEN候補は先行公開を目指し、実機測定や本人の体験がなくても、公式情報と信頼できる第三者の海外レビュー・検証・公開資料を調査して、出典付きの比較・整理・解説型記事を完成させてください。第三者の結果を自分の実測として書かず、測定条件と情報の限界を明記してください。資料不足だけでBLOCKEDにせず、確認できない項目は省略してください。中心主張の根拠不足・重大な事実誤認・捏造がある場合は公開不可です。ScoreとGREENは元キーワードの探索結果であり、記事形式変更後の順位保証ではありません。','',
+    '## 旧条件との優先順位',
+    '過去のSERP資料に実機データ必須・着手不可という記述があっても旧方式の参考記録として扱い、現在の公開情報型制作方針を優先してください。形式転換のみを理由とするBOSへの再評価依頼は不要です。','',
     '## aCreatorへの指示',
     'これは新規サイト向けの1キーワード＝1記事の新記事作成案件です。既存記事のリライト、カニバリ判定、内部リンク設計、サイト全体のクラスター設計はこの依頼では行わないでください。'
   ].join('\n');
+}
+
+/** Strip superseded hands-on-only gates from legacy saved cannibal scope text. */
+function sbosCreatorCurrentScope_(value, fallback) {
+  const source = String(value || fallback || '');
+  const parts = source.split(/(?<=[。\n])/);
+  const stale = /(?:実機|実測|ベンチマーク|本人の体験|独自データ|前後比較)/;
+  const blocking = /(?:必須|不可|着手しない|着手不可|停止|公開不可|提供されるまで|揃うまで|ない場合|なければ|のみ|限定)/;
+  const cleaned = parts.filter(part => !(stale.test(part) && blocking.test(part))).join('').trim();
+  return cleaned || String(fallback || '');
 }
 
 function sbosBuildCreatorReferral_(v) {
@@ -3446,17 +3458,19 @@ function sbosBuildCreatorReferral_(v) {
     '## 検索意図', v[7],'',
     '## Blue Ocean / Cannibal Evidence', v[8],'',
     '## 新記事が担当する範囲',
-    d.article_scope || 'このキーワード固有の検索意図に限定して新規記事として独立させてください.','',
+    sbosCreatorCurrentScope_(d.article_scope, 'このキーワード固有の検索意図に限定して新規記事として独立させてください。'),'',
     '## 既存記事との検索意図の境界',
-    d.existing_article_boundary || '既存記事の担当検索意図を侵食しないでください.','',
+    sbosCreatorCurrentScope_(d.existing_article_boundary, '既存記事の担当検索意図を侵食しないでください。'),'',
     '## 近接する既存記事', matchedText,'',
     '## 内部リンク候補', linkText,'',
     '## 内部リンクの採用条件',
     '候補のアンカーテキスト・タイトルはBOSの参考情報であり、リンク先本文の照合済みを意味しません。実在URLを開いて記事の主題・見出し・本文との一致を確認し、不一致・取得不可なら採用せず理由を報告してください。','',
-    '## 記事化優先方針（GREEN候補を積極的に記事化）',
+    '## 現行の制作方針（過去の実機必須条件より優先）',
     '本案件は検索需要の先行獲得を狙う新記事作成です。実機データや本人の体験がなくても、それだけを理由に執筆を停止しないでください。公式情報、信頼できる第三者のレビュー・検証結果、公開資料を調査し、出典を明示した比較・整理・解説型の記事として、確認できる範囲で完成HTMLを作成してください。海外情報が中心でも、日本語読者の判断に役立つよう複数資料を照合し、測定条件と限界を明示してください。','',
     '## 捏造防止と公開条件',
     '未提供の実測値・使用感・体験談・架空の出典は絶対に作らないでください。確認済み事実、第三者の評価、筆者の考察を区別してください。資料不足だけでBLOCKEDにせず、確認できない個別項目は省略または未確認と明記してください。ただし中心的な主張の根拠がない、重大な事実誤認がある、既存記事と実質的に重複する場合は公開を許可しないでください。公開可能な記事は完成HTMLとpublication_gateを返してください。公開後はSIMS Managerで検索実績を測定し改善します。BOSのScore・GREENは元キーワードの探索結果であり、記事形式変更後の上位表示を保証しません。','',
+    '## 旧条件との優先順位',
+    '保存済みBOS分析に実機測定必須・実測データがなければ着手しない等の過去の制約が含まれていても、それは旧運用の参考記録であり現行の着手条件ではありません。実測がない場合は出典付きの第三者検証整理型へ切り替え、記事の担当範囲と検索意図の境界だけを維持してください。記事形式を切り替えたことだけを理由にBOSへの再評価・再登録を要求しないでください。必要な公開前確認はaCreator自身のpublication_gateに記載し、公開後の測定・改善はSIMS Managerで行います。', '',
     '## カニバリ防止条件',
     '上記の担当境界を守り、既存記事が担当する検索意図を奪わないでください。重複する一般説明は必要最小限とし、近接記事とは内部リンクで役割分担してください。','',
     '## 事実確認',
@@ -3599,7 +3613,7 @@ function sbosRegisterSbmResultFromCreatorDialog(keyword,articleId,publicUrl) {
 }
 /**
  * Legacy alternative-review records remain in State (alternative_review_json).
- * v0.14.40 retires their separate UI and mutation APIs; existing data is untouched.
+ * v0.14.41 retires their separate UI and mutation APIs; existing data is untouched.
  * Candidate grades, SERP evidence, creator replies, and Manager IDs are unaffected.
  */
 function sbosShowCreatorWorkflowDialog() {

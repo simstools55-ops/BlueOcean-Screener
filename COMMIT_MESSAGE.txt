@@ -1,1 +1,1 @@
-refactor(bos): retire obsolete alternative review workflow (v0.14.40)
+fix(bos): remove legacy hands-on-only gates from creator referrals (v0.14.41)

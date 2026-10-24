@@ -1,3 +1,6 @@
+## v0.14.41 (2026-10-24)
+- Remove obsolete hands-on-only gates from aCreator handoff and prohibit format-conversion re-evaluation loops.
+
 # v0.14.37
 - Manager登録済み案件では新記事登録を再案内せず、Article IDと公開URLを表示。
 - aCreator企画JSON（article・publication_gate.status不足）を完成記事JSONと区別するエラー文へ改善。
